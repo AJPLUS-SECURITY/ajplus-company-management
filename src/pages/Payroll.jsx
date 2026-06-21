@@ -64,12 +64,17 @@ export default function Payroll() {
   async function loadRecords() {
     const res = await supabase
       .from("payroll_records")
-      .select(
-        "id, month, basic_salary, allowances, deductions, net_salary, status, paid_at, employee:users(full_name)"
-      )
+      .select("id, user_id, month, basic_salary, allowances, deductions, net_salary, status, paid_at")
       .order("created_at", { ascending: false })
       .limit(30)
     setRecords(res.data || [])
+  }
+
+  function employeeName(userId) {
+    const emp = employees.find(function (e) {
+      return e.id === userId
+    })
+    return emp ? emp.full_name : "Mfanyakazi"
   }
 
   function updateField(field, value) {
@@ -272,7 +277,7 @@ export default function Payroll() {
                 <div className="row-item expense-row" key={r.id}>
                   <div>
                     <p className="row-title">
-                      {r.employee ? r.employee.full_name : ""} — {r.month}
+                      {employeeName(r.user_id)} — {r.month}
                     </p>
                     <p className="row-sub">
                       Msingi: {Number(r.basic_salary).toLocaleString()} · Posho:{" "}
