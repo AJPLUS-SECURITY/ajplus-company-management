@@ -20,6 +20,45 @@ const STATUS_LABEL = {
   cancelled: "Imefutwa",
 }
 
+const VAT_RATE = 0.18
+
+function paymentInfoHtml() {
+  const qrText = "AJ PLUS COMPANY LIMITED | NMB Tegeta: 23510095544 | Lipa Namba (Yas): 44934738"
+  const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=" + encodeURIComponent(qrText)
+
+  return (
+    "<div class='pay-section'>" +
+    "<h3>Njia za Malipo</h3>" +
+    "<div class='pay-grid'>" +
+    "<div class='pay-col'>" +
+    "<p><strong>Benki (NMB Bank, Tegeta Branch)</strong></p>" +
+    "<p>Namba ya Akaunti: 23510095544</p>" +
+    "<p>Jina la Akaunti: AJPLUS Company Limited</p>" +
+    "<p style='margin-top:10px;'><strong>Lipa by Mixx by Yas</strong></p>" +
+    "<p>Lipa Namba: 44934738</p>" +
+    "<p>Jina: AJPLUS Company Limited</p>" +
+    "</div>" +
+    "<div class='pay-col' style='text-align:center;'>" +
+    "<img src='" + qrUrl + "' alt='QR malipo' style='width:110px;height:110px;' />" +
+    "<p style='font-size:10px;color:#666;margin-top:4px;'>Kagua (scan) kupata taarifa za malipo</p>" +
+    "</div>" +
+    "</div>" +
+    "<p class='terms'><strong>Masharti ya malipo:</strong> Tafadhali kamilisha malipo ndani ya siku 14 kuanzia tarehe ya hati hii. " +
+    "Malipo yaliyochelewa zaidi ya siku 30 yanaweza kutozwa riba ya ziada ya makubaliano. " +
+    "Kwa maswali yoyote kuhusu malipo, tafadhali wasiliana nasi moja kwa moja. " +
+    "Asante kwa kuchagua AJ PLUS COMPANY LIMITED &mdash; tunathamini ushirikiano wako.</p>" +
+    "</div>"
+  )
+}
+
+const PAYMENT_SECTION_CSS =
+  ".pay-section{margin-top:28px;border-top:1px solid #ddd;padding-top:16px;}" +
+  ".pay-section h3{font-size:14px;margin:0 0 10px 0;color:#085041;}" +
+  ".pay-grid{display:flex;justify-content:space-between;gap:20px;}" +
+  ".pay-col p{margin:3px 0;font-size:12px;}" +
+  ".terms{font-size:11px;color:#555;margin-top:16px;line-height:1.5;background:#f7f7f7;padding:10px;border-radius:6px;}" +
+  ".vat-row{font-size:13px;text-align:right;margin:2px 0;}"
+
 function emptyItem() {
   return { description: "", quantity: 1, unit_price: "" }
 }
@@ -87,7 +126,7 @@ export default function Invoices() {
     const res = await supabase
       .from("invoices")
       .select(
-        "id, invoice_number, status, total_amount, amount_paid, due_date, issue_date, client_id, client:clients(name, phone), service_line:service_lines(name)"
+        "id, invoice_number, status, subtotal, total_amount, amount_paid, due_date, issue_date, client_id, client:clients(name, phone), service_line:service_lines(name)"
       )
       .order("created_at", { ascending: false })
       .limit(30)
@@ -187,6 +226,14 @@ export default function Invoices() {
     }, 0)
   }
 
+  function calculateVat() {
+    return calculateTotal() * VAT_RATE
+  }
+
+  function calculateGrandTotal() {
+    return calculateTotal() + calculateVat()
+  }
+
   function generateInvoiceNumber() {
     const now = new Date()
     const stamp = now.getFullYear().toString() + (now.getMonth() + 1).toString().padStart(2, "0") + now.getDate().toString().padStart(2, "0")
@@ -213,7 +260,9 @@ export default function Invoices() {
     const stamp = now.getFullYear().toString() + (now.getMonth() + 1).toString().padStart(2, "0") + now.getDate().toString().padStart(2, "0")
     const quoteNumber = "QTN-" + stamp + "-" + Math.floor(Math.random() * 9000 + 1000)
     const logoUrl = window.location.origin + "/logo.png"
-    const total = calculateTotal()
+    const subtotalAmount = calculateTotal()
+    const vatAmountDisplay = calculateVat()
+    const grandTotalAmount = calculateGrandTotal()
 
     const rowsHtml = validItems
       .map(function (item) {
@@ -241,10 +290,11 @@ export default function Invoices() {
       "table{width:100%;border-collapse:collapse;margin-top:16px;}" +
       "th,td{padding:8px;border-bottom:1px solid #ddd;font-size:13px;}" +
       "th{text-align:left;background:#f3f6f4;}" +
-      ".total-row{font-weight:bold;font-size:16px;margin-top:16px;text-align:right;}" +
+      ".total-row{font-weight:bold;font-size:16px;margin-top:10px;text-align:right;}" +
       ".info p{margin:4px 0;font-size:13px;}" +
-      ".note{margin-top:24px;font-size:12px;color:#854f0b;background:#faeeda;padding:10px;border-radius:6px;}" +
-      ".footer{margin-top:40px;font-size:11px;color:#666;text-align:center;}" +
+      ".note{margin-top:16px;font-size:12px;color:#854f0b;background:#faeeda;padding:10px;border-radius:6px;}" +
+      ".footer{margin-top:24px;font-size:11px;color:#666;text-align:center;}" +
+      PAYMENT_SECTION_CSS +
       "@media print{button{display:none;}}" +
       "</style></head><body>" +
       "<div class='header'>" +
@@ -259,8 +309,11 @@ export default function Invoices() {
       "</div>" +
       "<table><thead><tr><th>Maelezo</th><th>Idadi</th><th>Bei</th><th>Jumla</th></tr></thead>" +
       "<tbody>" + rowsHtml + "</tbody></table>" +
-      "<p class='total-row'>JUMLA YA MAKADIRIO: " + total.toLocaleString() + " TZS</p>" +
+      "<p class='vat-row'>Jumla ndogo: " + subtotalAmount.toLocaleString() + " TZS</p>" +
+      "<p class='vat-row'>VAT (18%): " + vatAmountDisplay.toLocaleString() + " TZS</p>" +
+      "<p class='total-row'>JUMLA YA MAKADIRIO: " + grandTotalAmount.toLocaleString() + " TZS</p>" +
       "<p class='note'>Hii ni quotation/makadirio ya bei, sio invoice. Bei hii ni halali kwa siku 7 kuanzia tarehe ya kutolewa. Punguzo au ongezeko linaweza kutokea kulingana na maelezo zaidi ya kazi.</p>" +
+      paymentInfoHtml() +
       "<p class='footer'>Asante kwa kufikiria AJ PLUS COMPANY LIMITED.</p>" +
       "<script>window.onload = function(){ window.print(); }</script>" +
       "</body></html>"
@@ -294,7 +347,9 @@ export default function Invoices() {
 
     setBusy(true)
 
-    const total = calculateTotal()
+    const subtotal = calculateTotal()
+    const vatAmount = calculateVat()
+    const grandTotal = calculateGrandTotal()
     const invoiceNumber = generateInvoiceNumber()
 
     const invoiceRes = await supabase
@@ -304,8 +359,8 @@ export default function Invoices() {
         client_id: form.client_id,
         service_line_id: form.service_line_id,
         due_date: form.due_date || null,
-        subtotal: total,
-        total_amount: total,
+        subtotal: subtotal,
+        total_amount: grandTotal,
         status: "unpaid",
         created_by: profile.id,
       })
@@ -383,6 +438,15 @@ export default function Invoices() {
     const serviceLineName = invoice.service_line ? invoice.service_line.name : ""
     const logoUrl = window.location.origin + "/logo.png"
 
+    const isPaid = invoice.status === "paid"
+    const documentTitle = isPaid ? "RISITI YA MALIPO" : "INVOICE"
+    const statusText = STATUS_LABEL[invoice.status] || invoice.status
+    const statusColor = isPaid ? "#085041" : "#854f0b"
+    const statusBg = isPaid ? "#e1f5ee" : "#faeeda"
+    const subtotalAmount = Number(invoice.subtotal) || 0
+    const grandTotalAmount = Number(invoice.total_amount) || 0
+    const vatAmountDisplay = grandTotalAmount - subtotalAmount
+
     const rowsHtml = items
       .map(function (item) {
         return (
@@ -397,27 +461,30 @@ export default function Invoices() {
       .join("")
 
     const html =
-      "<html><head><title>" + invoice.invoice_number + "</title>" +
+      "<html><head><title>" + documentTitle + " - " + invoice.invoice_number + "</title>" +
       "<style>" +
       "body{font-family:Arial,Helvetica,sans-serif;padding:36px;color:#1a1a1a;}" +
       ".header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1D9E75;padding-bottom:16px;margin-bottom:24px;}" +
       ".header img{height:60px;}" +
       "h1{color:#085041;font-size:20px;margin:0;}" +
-      "h2{font-size:16px;margin-top:24px;}" +
+      "h2{font-size:18px;margin-top:24px;}" +
       "table{width:100%;border-collapse:collapse;margin-top:16px;}" +
       "th,td{padding:8px;border-bottom:1px solid #ddd;font-size:13px;}" +
       "th{text-align:left;background:#f3f6f4;}" +
-      ".total-row{font-weight:bold;font-size:16px;margin-top:16px;text-align:right;}" +
+      ".total-row{font-weight:bold;font-size:16px;margin-top:10px;text-align:right;}" +
       ".info p{margin:4px 0;font-size:13px;}" +
-      ".footer{margin-top:40px;font-size:11px;color:#666;text-align:center;}" +
+      ".status-pill{display:inline-block;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:bold;color:" + statusColor + ";background:" + statusBg + ";margin-top:6px;}" +
+      ".footer{margin-top:24px;font-size:11px;color:#666;text-align:center;}" +
+      PAYMENT_SECTION_CSS +
       "@media print{button{display:none;}}" +
       "</style></head><body>" +
       "<div class='header'>" +
       "<div><h1>AJ PLUS COMPANY LIMITED</h1><p style='margin:4px 0;font-size:12px;'>Fikiri Kimataifa &mdash; Zungumza Kitanzania</p></div>" +
       "<img src='" + logoUrl + "' />" +
       "</div>" +
-      "<h2>RISITI / INVOICE &mdash; " + invoice.invoice_number + "</h2>" +
-      "<div class='info'>" +
+      "<h2>" + documentTitle + " &mdash; " + invoice.invoice_number + "</h2>" +
+      "<span class='status-pill'>" + statusText.toUpperCase() + "</span>" +
+      "<div class='info' style='margin-top:14px;'>" +
       "<p><strong>Mteja:</strong> " + clientName + "</p>" +
       "<p><strong>Simu:</strong> " + (clientPhone || "-") + "</p>" +
       "<p><strong>Huduma:</strong> " + serviceLineName + "</p>" +
@@ -425,7 +492,10 @@ export default function Invoices() {
       "</div>" +
       "<table><thead><tr><th>Maelezo</th><th>Idadi</th><th>Bei</th><th>Jumla</th></tr></thead>" +
       "<tbody>" + rowsHtml + "</tbody></table>" +
-      "<p class='total-row'>JUMLA: " + Number(invoice.total_amount).toLocaleString() + " TZS</p>" +
+      "<p class='vat-row'>Jumla ndogo: " + subtotalAmount.toLocaleString() + " TZS</p>" +
+      "<p class='vat-row'>VAT (18%): " + vatAmountDisplay.toLocaleString() + " TZS</p>" +
+      "<p class='total-row'>JUMLA KUU: " + grandTotalAmount.toLocaleString() + " TZS</p>" +
+      paymentInfoHtml() +
       "<p class='footer'>Asante kwa kufanya kazi na AJ PLUS COMPANY LIMITED.</p>" +
       "<script>window.onload = function(){ window.print(); }</script>" +
       "</body></html>"
@@ -614,7 +684,13 @@ export default function Invoices() {
               Ongeza kitu kingine
             </button>
 
-            <p className="invoice-total">Jumla: {calculateTotal().toLocaleString()} TZS</p>
+            <div className="vat-breakdown">
+              <p className="invoice-total">Jumla ndogo: {calculateTotal().toLocaleString()} TZS</p>
+              <p className="invoice-total">VAT (18%): {calculateVat().toLocaleString()} TZS</p>
+              <p className="invoice-total" style={{ fontWeight: "bold" }}>
+                Jumla kuu: {calculateGrandTotal().toLocaleString()} TZS
+              </p>
+            </div>
 
             <div className="header-buttons">
               <button type="button" className="btn-cancel" onClick={downloadQuotation}>
@@ -649,7 +725,7 @@ export default function Invoices() {
                       {STATUS_LABEL[inv.status] || inv.status}
                     </span>
                     <button className="btn-cancel" onClick={function () { downloadReceipt(inv) }}>
-                      Pakua PDF
+                      {inv.status === "paid" ? "Pakua Risiti" : "Pakua Invoice"}
                     </button>
                     <button className="btn-cancel" onClick={function () { shareWhatsApp(inv) }}>
                       Tuma WhatsApp
