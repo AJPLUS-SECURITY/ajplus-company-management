@@ -22,6 +22,19 @@ const STATUS_LABEL = {
 
 const VAT_RATE = 0.18
 
+function companyHeaderHtml(logoUrl) {
+  return (
+    "<div class='header'>" +
+    "<div>" +
+    "<h1>AJ PLUS COMPANY LIMITED</h1>" +
+    "<p style='margin:4px 0;font-size:12px;'>Fikiri Kimataifa &mdash; Zungumza Kitanzania</p>" +
+    "<p style='margin:2px 0;font-size:11px;color:#1D9E75;font-weight:600;letter-spacing:0.5px;'>SECURITY &middot; CLEANING &middot; ICT-MEDIA</p>" +
+    "</div>" +
+    "<img src='" + logoUrl + "' />" +
+    "</div>"
+  )
+}
+
 function paymentInfoHtml() {
   const qrText = "AJ PLUS COMPANY LIMITED | NMB Tegeta: 23510095544 | Lipa Namba (Yas): 44934738"
   const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=" + encodeURIComponent(qrText)
@@ -297,10 +310,7 @@ export default function Invoices() {
       PAYMENT_SECTION_CSS +
       "@media print{button{display:none;}}" +
       "</style></head><body>" +
-      "<div class='header'>" +
-      "<div><h1>AJ PLUS COMPANY LIMITED</h1><p style='margin:4px 0;font-size:12px;'>Fikiri Kimataifa &mdash; Zungumza Kitanzania</p></div>" +
-      "<img src='" + logoUrl + "' />" +
-      "</div>" +
+      companyHeaderHtml(logoUrl) +
       "<h2>QUOTATION / MAKADIRIO YA BEI &mdash; " + quoteNumber + "</h2>" +
       "<div class='info'>" +
       "<p><strong>Mteja:</strong> " + (client ? client.name : "") + "</p>" +
@@ -478,10 +488,7 @@ export default function Invoices() {
       PAYMENT_SECTION_CSS +
       "@media print{button{display:none;}}" +
       "</style></head><body>" +
-      "<div class='header'>" +
-      "<div><h1>AJ PLUS COMPANY LIMITED</h1><p style='margin:4px 0;font-size:12px;'>Fikiri Kimataifa &mdash; Zungumza Kitanzania</p></div>" +
-      "<img src='" + logoUrl + "' />" +
-      "</div>" +
+      companyHeaderHtml(logoUrl) +
       "<h2>" + documentTitle + " &mdash; " + invoice.invoice_number + "</h2>" +
       "<span class='status-pill'>" + statusText.toUpperCase() + "</span>" +
       "<div class='info' style='margin-top:14px;'>" +
