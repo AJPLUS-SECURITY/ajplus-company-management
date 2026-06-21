@@ -8,6 +8,8 @@ import UserManagement from "./pages/UserManagement"
 import Income from "./pages/Income"
 import ExpenseRequests from "./pages/ExpenseRequests"
 import Invoices from "./pages/Invoices"
+import Payroll from "./pages/Payroll"
+import Stock from "./pages/Stock"
 
 export default function App() {
   return (
@@ -59,6 +61,26 @@ export default function App() {
               <ProtectedRoute allow={["fao", "md", "admin", "supervisor"]}>
                 <DashboardLayout>
                   <Invoices />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/payroll"
+            element={
+              <ProtectedRoute allow={["hr", "md", "admin"]}>
+                <DashboardLayout>
+                  <Payroll />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/stock"
+            element={
+              <ProtectedRoute allow={["supervisor", "md", "admin"]}>
+                <DashboardLayout>
+                  <Stock />
                 </DashboardLayout>
               </ProtectedRoute>
             }
