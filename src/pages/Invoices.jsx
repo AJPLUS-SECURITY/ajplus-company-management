@@ -86,7 +86,9 @@ export default function Invoices() {
   async function loadInvoices() {
     const res = await supabase
       .from("invoices")
-      .select("id, invoice_number, status, total_amount, amount_paid, due_date, issue_date, client:clients(name), service_line:service_lines(name)")
+      .select(
+        "id, invoice_number, status, total_amount, amount_paid, due_date, issue_date, client_id, client:clients(name, phone), service_line:service_lines(name)"
+      )
       .order("created_at", { ascending: false })
       .limit(30)
     setInvoices(res.data || [])
@@ -192,6 +194,86 @@ export default function Invoices() {
     return "INV-" + stamp + "-" + rand
   }
 
+  function downloadQuotation() {
+    setMessage(null)
+
+    const client = clients.find(function (c) { return c.id === form.client_id })
+    const serviceLine = serviceLines.find(function (sl) { return sl.id === form.service_line_id })
+
+    const validItems = form.items.filter(function (item) {
+      return item.description && Number(item.unit_price) > 0
+    })
+
+    if (validItems.length === 0) {
+      setMessage({ type: "error", text: "Ongeza angalau kitu kimoja chenye bei kabla ya kupakua quotation" })
+      return
+    }
+
+    const now = new Date()
+    const stamp = now.getFullYear().toString() + (now.getMonth() + 1).toString().padStart(2, "0") + now.getDate().toString().padStart(2, "0")
+    const quoteNumber = "QTN-" + stamp + "-" + Math.floor(Math.random() * 9000 + 1000)
+    const logoUrl = window.location.origin + "/logo.png"
+    const total = calculateTotal()
+
+    const rowsHtml = validItems
+      .map(function (item) {
+        const qty = Number(item.quantity) || 1
+        const price = Number(item.unit_price) || 0
+        return (
+          "<tr>" +
+          "<td>" + item.description + "</td>" +
+          "<td style='text-align:center'>" + qty + "</td>" +
+          "<td style='text-align:right'>" + price.toLocaleString() + "</td>" +
+          "<td style='text-align:right'>" + (qty * price).toLocaleString() + "</td>" +
+          "</tr>"
+        )
+      })
+      .join("")
+
+    const html =
+      "<html><head><title>" + quoteNumber + "</title>" +
+      "<style>" +
+      "body{font-family:Arial,Helvetica,sans-serif;padding:36px;color:#1a1a1a;}" +
+      ".header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1D9E75;padding-bottom:16px;margin-bottom:24px;}" +
+      ".header img{height:60px;}" +
+      "h1{color:#085041;font-size:20px;margin:0;}" +
+      "h2{font-size:16px;margin-top:24px;}" +
+      "table{width:100%;border-collapse:collapse;margin-top:16px;}" +
+      "th,td{padding:8px;border-bottom:1px solid #ddd;font-size:13px;}" +
+      "th{text-align:left;background:#f3f6f4;}" +
+      ".total-row{font-weight:bold;font-size:16px;margin-top:16px;text-align:right;}" +
+      ".info p{margin:4px 0;font-size:13px;}" +
+      ".note{margin-top:24px;font-size:12px;color:#854f0b;background:#faeeda;padding:10px;border-radius:6px;}" +
+      ".footer{margin-top:40px;font-size:11px;color:#666;text-align:center;}" +
+      "@media print{button{display:none;}}" +
+      "</style></head><body>" +
+      "<div class='header'>" +
+      "<div><h1>AJ PLUS COMPANY LIMITED</h1><p style='margin:4px 0;font-size:12px;'>Fikiri Kimataifa &mdash; Zungumza Kitanzania</p></div>" +
+      "<img src='" + logoUrl + "' />" +
+      "</div>" +
+      "<h2>QUOTATION / MAKADIRIO YA BEI &mdash; " + quoteNumber + "</h2>" +
+      "<div class='info'>" +
+      "<p><strong>Mteja:</strong> " + (client ? client.name : "") + "</p>" +
+      "<p><strong>Huduma:</strong> " + (serviceLine ? serviceLine.name : "") + "</p>" +
+      "<p><strong>Tarehe:</strong> " + now.toLocaleDateString("en-GB") + "</p>" +
+      "</div>" +
+      "<table><thead><tr><th>Maelezo</th><th>Idadi</th><th>Bei</th><th>Jumla</th></tr></thead>" +
+      "<tbody>" + rowsHtml + "</tbody></table>" +
+      "<p class='total-row'>JUMLA YA MAKADIRIO: " + total.toLocaleString() + " TZS</p>" +
+      "<p class='note'>Hii ni quotation/makadirio ya bei, sio invoice. Bei hii ni halali kwa siku 7 kuanzia tarehe ya kutolewa. Punguzo au ongezeko linaweza kutokea kulingana na maelezo zaidi ya kazi.</p>" +
+      "<p class='footer'>Asante kwa kufikiria AJ PLUS COMPANY LIMITED.</p>" +
+      "<script>window.onload = function(){ window.print(); }</script>" +
+      "</body></html>"
+
+    const printWindow = window.open("", "_blank")
+    if (!printWindow) {
+      setMessage({ type: "error", text: "Browser imezuia dirisha jipya. Ruhusu pop-ups kisha jaribu tena." })
+      return
+    }
+    printWindow.document.write(html)
+    printWindow.document.close()
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setMessage(null)
@@ -281,6 +363,100 @@ export default function Invoices() {
 
     setMessage({ type: "success", text: "Invoice imewekwa kama imelipwa" })
     await loadInvoices()
+  }
+
+  async function downloadReceipt(invoice) {
+    setMessage(null)
+    const itemsRes = await supabase
+      .from("invoice_items")
+      .select("description, quantity, unit_price, line_total")
+      .eq("invoice_id", invoice.id)
+
+    if (itemsRes.error) {
+      setMessage({ type: "error", text: itemsRes.error.message })
+      return
+    }
+
+    const items = itemsRes.data || []
+    const clientName = invoice.client ? invoice.client.name : ""
+    const clientPhone = invoice.client ? invoice.client.phone : ""
+    const serviceLineName = invoice.service_line ? invoice.service_line.name : ""
+    const logoUrl = window.location.origin + "/logo.png"
+
+    const rowsHtml = items
+      .map(function (item) {
+        return (
+          "<tr>" +
+          "<td>" + item.description + "</td>" +
+          "<td style='text-align:center'>" + item.quantity + "</td>" +
+          "<td style='text-align:right'>" + Number(item.unit_price).toLocaleString() + "</td>" +
+          "<td style='text-align:right'>" + Number(item.line_total).toLocaleString() + "</td>" +
+          "</tr>"
+        )
+      })
+      .join("")
+
+    const html =
+      "<html><head><title>" + invoice.invoice_number + "</title>" +
+      "<style>" +
+      "body{font-family:Arial,Helvetica,sans-serif;padding:36px;color:#1a1a1a;}" +
+      ".header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1D9E75;padding-bottom:16px;margin-bottom:24px;}" +
+      ".header img{height:60px;}" +
+      "h1{color:#085041;font-size:20px;margin:0;}" +
+      "h2{font-size:16px;margin-top:24px;}" +
+      "table{width:100%;border-collapse:collapse;margin-top:16px;}" +
+      "th,td{padding:8px;border-bottom:1px solid #ddd;font-size:13px;}" +
+      "th{text-align:left;background:#f3f6f4;}" +
+      ".total-row{font-weight:bold;font-size:16px;margin-top:16px;text-align:right;}" +
+      ".info p{margin:4px 0;font-size:13px;}" +
+      ".footer{margin-top:40px;font-size:11px;color:#666;text-align:center;}" +
+      "@media print{button{display:none;}}" +
+      "</style></head><body>" +
+      "<div class='header'>" +
+      "<div><h1>AJ PLUS COMPANY LIMITED</h1><p style='margin:4px 0;font-size:12px;'>Fikiri Kimataifa &mdash; Zungumza Kitanzania</p></div>" +
+      "<img src='" + logoUrl + "' />" +
+      "</div>" +
+      "<h2>RISITI / INVOICE &mdash; " + invoice.invoice_number + "</h2>" +
+      "<div class='info'>" +
+      "<p><strong>Mteja:</strong> " + clientName + "</p>" +
+      "<p><strong>Simu:</strong> " + (clientPhone || "-") + "</p>" +
+      "<p><strong>Huduma:</strong> " + serviceLineName + "</p>" +
+      "<p><strong>Tarehe ya kutoa:</strong> " + (invoice.issue_date || "-") + " &nbsp;&nbsp; <strong>Inadaiwa:</strong> " + (invoice.due_date || "Haijawekwa") + "</p>" +
+      "</div>" +
+      "<table><thead><tr><th>Maelezo</th><th>Idadi</th><th>Bei</th><th>Jumla</th></tr></thead>" +
+      "<tbody>" + rowsHtml + "</tbody></table>" +
+      "<p class='total-row'>JUMLA: " + Number(invoice.total_amount).toLocaleString() + " TZS</p>" +
+      "<p class='footer'>Asante kwa kufanya kazi na AJ PLUS COMPANY LIMITED.</p>" +
+      "<script>window.onload = function(){ window.print(); }</script>" +
+      "</body></html>"
+
+    const printWindow = window.open("", "_blank")
+    if (!printWindow) {
+      setMessage({ type: "error", text: "Browser imezuia dirisha jipya. Ruhusu pop-ups kisha jaribu tena." })
+      return
+    }
+    printWindow.document.write(html)
+    printWindow.document.close()
+  }
+
+  function shareWhatsApp(invoice) {
+    const clientPhone = invoice.client ? invoice.client.phone : ""
+    const clientName = invoice.client ? invoice.client.name : ""
+    const text =
+      "Habari " + clientName + ", hii ni invoice yako " + invoice.invoice_number +
+      " ya jumla TZS " + Number(invoice.total_amount).toLocaleString() +
+      " kutoka AJ PLUS COMPANY LIMITED. Tafadhali angalia risiti iliyopakuliwa (PDF) tuliyokutumia."
+
+    let phone = (clientPhone || "").replace(/[^0-9]/g, "")
+    if (phone.startsWith("0")) {
+      phone = "255" + phone.slice(1)
+    }
+
+    const url = phone
+      ? "https://wa.me/" + phone + "?text=" + encodeURIComponent(text)
+      : "https://wa.me/?text=" + encodeURIComponent(text)
+
+    window.open(url, "_blank")
   }
 
   if (loading) {
@@ -440,9 +616,14 @@ export default function Invoices() {
 
             <p className="invoice-total">Jumla: {calculateTotal().toLocaleString()} TZS</p>
 
-            <button className="btn-approve submit-income" disabled={busy}>
-              {busy ? "Inatengeneza..." : "Tengeneza invoice"}
-            </button>
+            <div className="header-buttons">
+              <button type="button" className="btn-cancel" onClick={downloadQuotation}>
+                Pakua Quotation (PDF)
+              </button>
+              <button className="btn-approve submit-income" disabled={busy}>
+                {busy ? "Inatengeneza..." : "Tengeneza invoice"}
+              </button>
+            </div>
           </form>
         ) : null}
       </div>
@@ -467,6 +648,12 @@ export default function Invoices() {
                     <span className={"badge " + (STATUS_BADGE[inv.status] || "badge-pending")}>
                       {STATUS_LABEL[inv.status] || inv.status}
                     </span>
+                    <button className="btn-cancel" onClick={function () { downloadReceipt(inv) }}>
+                      Pakua PDF
+                    </button>
+                    <button className="btn-cancel" onClick={function () { shareWhatsApp(inv) }}>
+                      Tuma WhatsApp
+                    </button>
                     {inv.status !== "paid" ? (
                       <button className="btn-approve" onClick={function () { markAsPaid(inv.id, inv.total_amount) }}>
                         Weka kama imelipwa
