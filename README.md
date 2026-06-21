@@ -51,3 +51,4 @@ git push -u origin main
 | hr | Payroll na wafanyakazi tu |
 | supervisor | Maombi na stock ya service_line yake tu |
 | employee | (bado haijajengwa UI yake - dashboard ya kuomba fedha) |
+km.
