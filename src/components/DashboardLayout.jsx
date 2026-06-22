@@ -16,6 +16,7 @@ const NAV_BY_ROLE = {
     { to: '/', label: 'Muhtasari', icon: 'home' },
     { to: '/expenses', label: 'Maombi ya Fedha', icon: 'cash' },
     { to: '/invoices', label: 'Invoices', icon: 'file' },
+    { to: '/payroll', label: 'Payroll', icon: 'users' },
     { to: '/income', label: 'Mapato', icon: 'trend' },
     { to: '/reports', label: 'Ripoti', icon: 'chart' },
   ],
