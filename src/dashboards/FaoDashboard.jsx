@@ -10,9 +10,13 @@ export default function FaoDashboard() {
   const [unpaidInvoices, setUnpaidInvoices] = useState([])
   const [loading, setLoading] = useState(true)
 
+  const [unpaidTotal, setUnpaidTotal] = useState(0)
+  const [paidTotal, setPaidTotal] = useState(0)
+  const [unpaidCount, setUnpaidCount] = useState(0)
+
   useEffect(() => {
     async function load() {
-      const [balanceRes, pendingRes, invoiceRes] = await Promise.all([
+      const [balanceRes, pendingRes, invoiceRes, allInvoicesRes] = await Promise.all([
         supabase.from('v_company_balance_to_date').select('*').single(),
         supabase.from('v_pending_expense_requests').select('*'),
         supabase
@@ -21,11 +25,20 @@ export default function FaoDashboard() {
           .in('status', ['unpaid', 'overdue', 'partially_paid'])
           .order('due_date', { ascending: true })
           .limit(8),
+        supabase.from('invoices').select('status, total_amount'),
       ])
 
       setBalance(balanceRes.data)
       setPending(pendingRes.data ?? [])
       setUnpaidInvoices(invoiceRes.data ?? [])
+
+      const allInvoices = allInvoicesRes.data ?? []
+      const unpaidOnes = allInvoices.filter((inv) => inv.status !== 'paid')
+      const paidOnes = allInvoices.filter((inv) => inv.status === 'paid')
+      setUnpaidTotal(unpaidOnes.reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0))
+      setPaidTotal(paidOnes.reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0))
+      setUnpaidCount(unpaidOnes.length)
+
       setLoading(false)
     }
     load()
@@ -51,7 +64,9 @@ export default function FaoDashboard() {
         <MetricCard label="Mapato (tangu mwanzo)" value={Number(balance?.total_income_to_date ?? 0)} />
         <MetricCard label="Matumizi (tangu mwanzo)" value={Number(balance?.total_expenses_to_date ?? 0)} />
         <MetricCard label="Salio la sasa" value={Number(balance?.current_balance ?? 0)} color="#085041" />
-        <MetricCard label="Invoices hazijalipwa" value={unpaidInvoices.length} prefix="" />
+        <MetricCard label="Invoices hazijalipwa (idadi)" value={unpaidCount} prefix="" />
+        <MetricCard label="Jumla Haijalipwa" value={unpaidTotal} color="#854f0b" />
+        <MetricCard label="Jumla Imelipwa" value={paidTotal} color="#085041" />
       </div>
 
       <div className="panel">
