@@ -17,21 +17,33 @@ export default function MdDashboard() {
   const [byServiceLine, setByServiceLine] = useState([])
   const [pending, setPending] = useState([])
   const [lowStock, setLowStock] = useState([])
+  const [unpaidTotal, setUnpaidTotal] = useState(0)
+  const [paidTotal, setPaidTotal] = useState(0)
+  const [unpaidCount, setUnpaidCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
-      const [balanceRes, slRes, pendingRes, stockRes] = await Promise.all([
+      const [balanceRes, slRes, pendingRes, stockRes, allInvoicesRes] = await Promise.all([
         supabase.from('v_company_balance_to_date').select('*').single(),
         supabase.from('v_balance_by_service_line').select('*'),
         supabase.from('v_pending_expense_requests').select('*').limit(6),
         supabase.from('v_low_stock_alert').select('*').limit(6),
+        supabase.from('invoices').select('status, total_amount'),
       ])
 
       setBalance(balanceRes.data)
       setByServiceLine(slRes.data ?? [])
       setPending(pendingRes.data ?? [])
       setLowStock(stockRes.data ?? [])
+
+      const allInvoices = allInvoicesRes.data ?? []
+      const unpaidOnes = allInvoices.filter((inv) => inv.status !== 'paid')
+      const paidOnes = allInvoices.filter((inv) => inv.status === 'paid')
+      setUnpaidTotal(unpaidOnes.reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0))
+      setPaidTotal(paidOnes.reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0))
+      setUnpaidCount(unpaidOnes.length)
+
       setLoading(false)
     }
     load()
@@ -56,6 +68,9 @@ export default function MdDashboard() {
           color="#085041"
         />
         <MetricCard label="Maombi yanasubiri" value={pending.length} prefix="" />
+        <MetricCard label="Invoices Hazijalipwa (idadi)" value={unpaidCount} prefix="" />
+        <MetricCard label="Jumla Invoices Haijalipwa" value={unpaidTotal} color="#854f0b" />
+        <MetricCard label="Jumla Invoices Imelipwa" value={paidTotal} color="#085041" />
       </div>
 
       <div className="panel">
