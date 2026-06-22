@@ -53,6 +53,7 @@ export default function ExpenseRequests() {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState(null)
   const [showForm, setShowForm] = useState(false)
+  const [showRejected, setShowRejected] = useState(false)
 
   const [form, setForm] = useState({
     service_line_id: '',
@@ -66,6 +67,7 @@ export default function ExpenseRequests() {
   // kinachagua kama mtu huyu anaweza kuapprove ombi LILE kupitia canUserApprove()
   const canApproveRole = ['supervisor', 'fao', 'md', 'admin'].includes(role)
   const canMarkPaid = ['fao', 'md', 'admin'].includes(role)
+  const canViewRejectedHistory = ['md', 'admin'].includes(role)
 
   useEffect(() => {
     loadAll()
@@ -157,7 +159,10 @@ export default function ExpenseRequests() {
     })
 
     if (error) {
-      setMessage({ type: 'error', text: error.message })
+      const friendly = error.message?.includes('duplicate key')
+        ? 'Tayari umeshatoa uamuzi kwenye ombi hili - haiwezi kubadilishwa.'
+        : error.message
+      setMessage({ type: 'error', text: friendly })
       return
     }
 
@@ -271,12 +276,21 @@ export default function ExpenseRequests() {
       )}
 
       <div className="panel">
-        <p className="panel-title">Maombi yote</p>
+        <div className="panel-header-row">
+          <p className="panel-title">Maombi yote</p>
+          {canViewRejectedHistory && (
+            <button className="btn-cancel" onClick={() => setShowRejected((s) => !s)}>
+              {showRejected ? 'Ficha yaliyokataliwa' : 'Onyesha yaliyokataliwa'}
+            </button>
+          )}
+        </div>
         {requests.length === 0 ? (
           <p className="panel-empty">Hakuna maombi bado.</p>
         ) : (
           <div className="row-list">
-            {requests.map((r) => {
+            {requests
+              .filter((r) => showRejected || r.status !== 'rejected')
+              .map((r) => {
               const requiredLevel = getRequiredLevel(r.amount)
               const userCanApproveThis = canApproveRole && canUserApprove(role, r.amount)
 
