@@ -16,6 +16,34 @@ const STATUS_LABEL = {
   paid: 'Imelipwa',
 }
 
+// ───────────────────────────────────────────────────────────
+// THRESHOLD YA APPROVAL — badilisha namba hizi kulingana na uamuzi wa MD
+// ───────────────────────────────────────────────────────────
+const THRESHOLDS = {
+  SUPERVISOR_MAX: 100000,   // chini ya TZS 100,000 -> Supervisor anaweza approve
+  FAO_MAX: 1000000,         // TZS 100,000 - 1,000,000 -> FAO anaweza approve
+  // zaidi ya TZS 1,000,000 -> MD/Admin tu
+}
+
+// Ngazi inayohitajika kuapprove kiasi fulani (kwa ajili ya kuonyesha kwenye UI)
+function getRequiredLevel(amount) {
+  const n = Number(amount)
+  if (n < THRESHOLDS.SUPERVISOR_MAX) return 'Supervisor'
+  if (n <= THRESHOLDS.FAO_MAX) return 'FAO'
+  return 'MD'
+}
+
+// Je mtumiaji huyu (kwa role yake) anaweza kuapprove kiasi hiki?
+// MD/Admin wanaweza kuapprove kila kitu. FAO anaweza hadi FAO_MAX.
+// Supervisor anaweza tu chini ya SUPERVISOR_MAX.
+function canUserApprove(role, amount) {
+  const n = Number(amount)
+  if (role === 'admin' || role === 'md') return true
+  if (role === 'fao') return n <= THRESHOLDS.FAO_MAX
+  if (role === 'supervisor') return n < THRESHOLDS.SUPERVISOR_MAX
+  return false
+}
+
 export default function ExpenseRequests() {
   const { profile, role } = useAuth()
   const [serviceLines, setServiceLines] = useState([])
@@ -34,7 +62,9 @@ export default function ExpenseRequests() {
   })
 
   const canCreate = ['employee', 'supervisor', 'md', 'admin'].includes(role)
-  const canApprove = ['supervisor', 'fao', 'md', 'admin'].includes(role)
+  // canApprove hapa ni "ruhusa ya kimsingi ya kuwa approver" — kiasi maalum
+  // kinachagua kama mtu huyu anaweza kuapprove ombi LILE kupitia canUserApprove()
+  const canApproveRole = ['supervisor', 'fao', 'md', 'admin'].includes(role)
   const canMarkPaid = ['fao', 'md', 'admin'].includes(role)
 
   useEffect(() => {
@@ -109,8 +139,16 @@ export default function ExpenseRequests() {
     await loadRequests()
   }
 
-  async function handleApprove(requestId, decision) {
+  async function handleApprove(requestId, decision, amount) {
     setMessage(null)
+
+    // Ulinzi wa ziada upande wa frontend: hata kama button imeonekana kwa
+    // bahati, hatuhitaji kuruhusu approve kama role haifai kwa kiasi hiki.
+    if (decision === 'approved' && !canUserApprove(role, amount)) {
+      setMessage({ type: 'error', text: 'Huna ruhusa ya kuapprove kiasi hiki. Inahitaji: ' + getRequiredLevel(amount) })
+      return
+    }
+
     const { error } = await supabase.from('expense_approvals').insert({
       expense_request_id: requestId,
       approver_id: profile.id,
@@ -218,6 +256,12 @@ export default function ExpenseRequests() {
                 </label>
               </div>
 
+              {form.amount && (
+                <p className="row-sub">
+                  Kiasi hiki kitahitaji approval ya: <strong>{getRequiredLevel(form.amount)}</strong>
+                </p>
+              )}
+
               <button className="btn-approve submit-income" disabled={busy}>
                 {busy ? 'Inatuma...' : 'Tuma ombi'}
               </button>
@@ -232,43 +276,52 @@ export default function ExpenseRequests() {
           <p className="panel-empty">Hakuna maombi bado.</p>
         ) : (
           <div className="row-list">
-            {requests.map((r) => (
-              <div className="row-item expense-row" key={r.id}>
-                <div>
-                  <p className="row-title">{r.reason}</p>
-                  <p className="row-sub">
-                    {r.service_line?.name} · {r.requester?.full_name} · {r.category?.name ?? 'Bila aina'}
-                  </p>
-                  <p className="row-sub">
-                    Approvals: {r.current_approvals}/{r.required_approvals}
-                  </p>
-                </div>
+            {requests.map((r) => {
+              const requiredLevel = getRequiredLevel(r.amount)
+              const userCanApproveThis = canApproveRole && canUserApprove(role, r.amount)
 
-                <div className="expense-actions">
-                  <span className="row-amount">{Number(r.amount).toLocaleString()} TZS</span>
-                  <span className={'badge ' + (STATUS_BADGE[r.status] ?? 'badge-pending')}>
-                    {STATUS_LABEL[r.status] ?? r.status}
-                  </span>
+              return (
+                <div className="row-item expense-row" key={r.id}>
+                  <div>
+                    <p className="row-title">{r.reason}</p>
+                    <p className="row-sub">
+                      {r.service_line?.name} · {r.requester?.full_name} · {r.category?.name ?? 'Bila aina'}
+                    </p>
+                    <p className="row-sub">
+                      Approvals: {r.current_approvals}/{r.required_approvals} · Inahitaji: {requiredLevel}
+                    </p>
+                  </div>
 
-                  {canApprove && r.status === 'pending' && (
-                    <div className="expense-buttons">
-                      <button className="btn-approve" onClick={() => handleApprove(r.id, 'approved')}>
-                        Kubali
+                  <div className="expense-actions">
+                    <span className="row-amount">{Number(r.amount).toLocaleString()} TZS</span>
+                    <span className={'badge ' + (STATUS_BADGE[r.status] ?? 'badge-pending')}>
+                      {STATUS_LABEL[r.status] ?? r.status}
+                    </span>
+
+                    {r.status === 'pending' && canApproveRole && (
+                      userCanApproveThis ? (
+                        <div className="expense-buttons">
+                          <button className="btn-approve" onClick={() => handleApprove(r.id, 'approved', r.amount)}>
+                            Kubali
+                          </button>
+                          <button className="btn-cancel" onClick={() => handleApprove(r.id, 'rejected', r.amount)}>
+                            Kataa
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="row-sub">Inasubiri {requiredLevel}</span>
+                      )
+                    )}
+
+                    {canMarkPaid && r.status === 'approved' && (
+                      <button className="btn-approve" onClick={() => handleMarkPaid(r.id)}>
+                        Weka kama imelipwa
                       </button>
-                      <button className="btn-cancel" onClick={() => handleApprove(r.id, 'rejected')}>
-                        Kataa
-                      </button>
-                    </div>
-                  )}
-
-                  {canMarkPaid && r.status === 'approved' && (
-                    <button className="btn-approve" onClick={() => handleMarkPaid(r.id)}>
-                      Weka kama imelipwa
-                    </button>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
