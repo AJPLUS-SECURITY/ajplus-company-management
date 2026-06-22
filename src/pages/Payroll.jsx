@@ -30,6 +30,24 @@ function monthLabel(monthStr) {
   return (months[idx] || parts[1]) + " " + parts[0]
 }
 
+function emptyRow() {
+  return { basic_salary: "", earnings: "", overtime: "", hospital: "", fare: "", nssf: "" }
+}
+
+function rowTotalDeduction(row) {
+  const hospital = Number(row.hospital) || 0
+  const fare = Number(row.fare) || 0
+  const nssf = Number(row.nssf) || 0
+  return hospital + fare + nssf
+}
+
+function rowNet(row) {
+  const basic = Number(row.basic_salary) || 0
+  const earnings = Number(row.earnings) || 0
+  const overtime = Number(row.overtime) || 0
+  return basic + earnings + overtime - rowTotalDeduction(row)
+}
+
 export default function Payroll() {
   const { profile } = useAuth()
   const [employees, setEmployees] = useState([])
@@ -40,13 +58,7 @@ export default function Payroll() {
   const [showForm, setShowForm] = useState(false)
   const [showBatch, setShowBatch] = useState(false)
 
-  const [form, setForm] = useState({
-    user_id: "",
-    month: currentMonth(),
-    basic_salary: "",
-    allowances: "",
-    deductions: "",
-  })
+  const [form, setForm] = useState(Object.assign({ user_id: "", month: currentMonth() }, emptyRow()))
 
   const [batchMonth, setBatchMonth] = useState(currentMonth())
   const [batchRows, setBatchRows] = useState({})
@@ -82,9 +94,11 @@ export default function Payroll() {
   async function loadRecords() {
     const res = await supabase
       .from("payroll_records")
-      .select("id, user_id, month, basic_salary, allowances, deductions, net_salary, status, paid_at")
+      .select(
+        "id, user_id, month, basic_salary, allowances, overtime, hospital, fare, nssf, deductions, net_salary, status, paid_at"
+      )
       .order("created_at", { ascending: false })
-      .limit(200)
+      .limit(300)
     setRecords(res.data || [])
   }
 
@@ -103,13 +117,6 @@ export default function Payroll() {
     })
   }
 
-  function calculateNet() {
-    const basic = Number(form.basic_salary) || 0
-    const allow = Number(form.allowances) || 0
-    const deduct = Number(form.deductions) || 0
-    return basic + allow - deduct
-  }
-
   async function handleSubmit(e) {
     e.preventDefault()
     setMessage(null)
@@ -121,17 +128,19 @@ export default function Payroll() {
 
     setBusy(true)
 
-    const net = calculateNet()
-
     const res = await supabase
       .from("payroll_records")
       .insert({
         user_id: form.user_id,
         month: form.month,
         basic_salary: Number(form.basic_salary) || 0,
-        allowances: Number(form.allowances) || 0,
-        deductions: Number(form.deductions) || 0,
-        net_salary: net,
+        allowances: Number(form.earnings) || 0,
+        overtime: Number(form.overtime) || 0,
+        hospital: Number(form.hospital) || 0,
+        fare: Number(form.fare) || 0,
+        nssf: Number(form.nssf) || 0,
+        deductions: rowTotalDeduction(form),
+        net_salary: rowNet(form),
         status: "pending",
         created_by: profile.id,
       })
@@ -147,11 +156,7 @@ export default function Payroll() {
 
     setMessage({ type: "success", text: "Malipo ya mshahara yameongezwa" })
     setForm(function (f) {
-      const copy = Object.assign({}, f)
-      copy.basic_salary = ""
-      copy.allowances = ""
-      copy.deductions = ""
-      return copy
+      return Object.assign({}, f, emptyRow())
     })
     setShowForm(false)
     await loadRecords()
@@ -160,20 +165,12 @@ export default function Payroll() {
   function updateBatchRow(employeeId, field, value) {
     setBatchRows(function (prev) {
       const copy = Object.assign({}, prev)
-      const existing = copy[employeeId] || { basic_salary: "", allowances: "", deductions: "" }
+      const existing = copy[employeeId] || emptyRow()
       const updated = Object.assign({}, existing)
       updated[field] = value
       copy[employeeId] = updated
       return copy
     })
-  }
-
-  function batchNet(employeeId) {
-    const row = batchRows[employeeId] || {}
-    const basic = Number(row.basic_salary) || 0
-    const allow = Number(row.allowances) || 0
-    const deduct = Number(row.deductions) || 0
-    return basic + allow - deduct
   }
 
   async function handleBatchSave() {
@@ -187,9 +184,13 @@ export default function Payroll() {
           user_id: emp.id,
           month: batchMonth,
           basic_salary: Number(row.basic_salary) || 0,
-          allowances: Number(row.allowances) || 0,
-          deductions: Number(row.deductions) || 0,
-          net_salary: (Number(row.basic_salary) || 0) + (Number(row.allowances) || 0) - (Number(row.deductions) || 0),
+          allowances: Number(row.earnings) || 0,
+          overtime: Number(row.overtime) || 0,
+          hospital: Number(row.hospital) || 0,
+          fare: Number(row.fare) || 0,
+          nssf: Number(row.nssf) || 0,
+          deductions: rowTotalDeduction(row),
+          net_salary: rowNet(row),
           status: "pending",
           created_by: profile.id,
         })
@@ -210,7 +211,10 @@ export default function Payroll() {
       return
     }
 
-    setMessage({ type: "success", text: "Payroll ya wafanyakazi " + toInsert.length + " imehifadhiwa kwa mwezi wa " + monthLabel(batchMonth) })
+    setMessage({
+      type: "success",
+      text: "Payroll ya wafanyakazi " + toInsert.length + " imehifadhiwa kwa mwezi wa " + monthLabel(batchMonth),
+    })
     setBatchRows({})
     setShowBatch(false)
     await loadRecords()
@@ -249,15 +253,20 @@ export default function Payroll() {
 
     const rowsHtml = monthRecords
       .map(function (r, idx) {
+        const totalDeduction = Number(r.hospital || 0) + Number(r.fare || 0) + Number(r.nssf || 0)
         grandTotal += Number(r.net_salary) || 0
         return (
           "<tr>" +
           "<td>" + (idx + 1) + "</td>" +
-          "<td>" + employeeName(r.user_id) + "</td>" +
-          "<td style='text-align:right'>" + Number(r.basic_salary).toLocaleString() + "</td>" +
-          "<td style='text-align:right'>" + Number(r.allowances).toLocaleString() + "</td>" +
-          "<td style='text-align:right'>" + Number(r.deductions).toLocaleString() + "</td>" +
-          "<td style='text-align:right;font-weight:bold;'>" + Number(r.net_salary).toLocaleString() + "</td>" +
+          "<td class='name-cell'>" + employeeName(r.user_id) + "</td>" +
+          "<td>" + Number(r.basic_salary).toLocaleString() + "</td>" +
+          "<td>" + Number(r.allowances || 0).toLocaleString() + "</td>" +
+          "<td>" + Number(r.overtime || 0).toLocaleString() + "</td>" +
+          "<td>" + totalDeduction.toLocaleString() + "</td>" +
+          "<td>" + Number(r.hospital || 0).toLocaleString() + "</td>" +
+          "<td>" + Number(r.fare || 0).toLocaleString() + "</td>" +
+          "<td>" + Number(r.nssf || 0).toLocaleString() + "</td>" +
+          "<td class='net-cell'>" + Number(r.net_salary).toLocaleString() + "</td>" +
           "<td class='sign-cell'></td>" +
           "</tr>"
         )
@@ -267,28 +276,33 @@ export default function Payroll() {
     const html =
       "<html><head><title>Payroll Sheet - " + printMonth + "</title>" +
       "<style>" +
-      "body{font-family:Arial,Helvetica,sans-serif;padding:30px;color:#1a1a1a;}" +
-      ".header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1D9E75;padding-bottom:14px;margin-bottom:20px;}" +
-      ".header img{height:55px;}" +
-      "h1{color:#085041;font-size:18px;margin:0;}" +
-      "h2{font-size:15px;margin-top:18px;}" +
-      "table{width:100%;border-collapse:collapse;margin-top:14px;}" +
-      "th,td{padding:7px;border:1px solid #ccc;font-size:12px;}" +
-      "th{text-align:left;background:#f3f6f4;}" +
-      ".sign-cell{min-width:90px;height:34px;}" +
+      "@page{size:landscape;margin:14mm;}" +
+      "body{font-family:Arial,Helvetica,sans-serif;padding:12px;color:#1a1a1a;}" +
+      ".header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1D9E75;padding-bottom:10px;margin-bottom:14px;}" +
+      ".header img{height:46px;}" +
+      "h1{color:#085041;font-size:16px;margin:0;}" +
+      "h2{font-size:13px;margin:10px 0;}" +
+      "table{width:100%;border-collapse:collapse;font-size:10px;}" +
+      "th,td{padding:4px 5px;border:1px solid #bbb;text-align:right;}" +
+      "th{text-align:center;background:#f3f6f4;font-size:9.5px;}" +
+      "td.name-cell{text-align:left;white-space:nowrap;}" +
+      "td.net-cell{font-weight:bold;}" +
+      "td.sign-cell{min-width:55px;height:22px;}" +
       ".total-row td{font-weight:bold;background:#f7f7f7;}" +
-      ".footer{margin-top:30px;font-size:11px;color:#666;display:flex;justify-content:space-between;}" +
-      ".footer div{width:30%;border-top:1px solid #999;padding-top:6px;text-align:center;}" +
+      ".footer{margin-top:24px;font-size:10px;color:#444;display:flex;justify-content:space-between;}" +
+      ".footer div{width:28%;border-top:1px solid #999;padding-top:5px;text-align:center;}" +
       "@media print{button{display:none;}}" +
       "</style></head><body>" +
       "<div class='header'>" +
-      "<div><h1>AJ PLUS COMPANY LIMITED</h1><p style='margin:4px 0;font-size:11px;'>SECURITY &middot; CLEANING &middot; ICT-MEDIA</p></div>" +
+      "<div><h1>AJ PLUS COMPANY LIMITED</h1><p style='margin:3px 0;font-size:10px;'>SECURITY &middot; CLEANING &middot; ICT-MEDIA</p></div>" +
       "<img src='" + logoUrl + "' />" +
       "</div>" +
       "<h2>PAYROLL SHEET &mdash; " + monthLabel(printMonth) + "</h2>" +
-      "<table><thead><tr><th>#</th><th>Jina la Mfanyakazi</th><th>Msingi</th><th>Posho</th><th>Makato</th><th>Jumla (Net)</th><th>Sahihi</th></tr></thead>" +
-      "<tbody>" + rowsHtml +
-      "<tr class='total-row'><td colspan='5'>JUMLA KUU</td><td style='text-align:right'>" + grandTotal.toLocaleString() + "</td><td></td></tr>" +
+      "<table><thead><tr>" +
+      "<th>S/N</th><th>Staff Name</th><th>Basic Salary</th><th>Earnings</th><th>Overtime</th>" +
+      "<th>Total Deduction</th><th>Hospital</th><th>Fare</th><th>NSSF</th><th>Net Salary</th><th>Sahihi</th>" +
+      "</tr></thead><tbody>" + rowsHtml +
+      "<tr class='total-row'><td colspan='9' style='text-align:right'>JUMLA KUU</td><td>" + grandTotal.toLocaleString() + "</td><td></td></tr>" +
       "</tbody></table>" +
       "<div class='footer'>" +
       "<div>Mtayarishaji (HR)</div>" +
@@ -378,12 +392,11 @@ export default function Payroll() {
 
             <div className="form-row">
               <label>
-                Mshahara wa msingi (TZS)
+                Basic Salary (TZS)
                 <input
                   type="number"
                   min="0"
-                  step="0.01"
-                  placeholder="0.00"
+                  placeholder="0"
                   value={form.basic_salary}
                   onChange={function (e) {
                     updateField("basic_salary", e.target.value)
@@ -391,35 +404,77 @@ export default function Payroll() {
                 />
               </label>
               <label>
-                Posho (TZS)
+                Earnings (TZS)
                 <input
                   type="number"
                   min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={form.allowances}
+                  placeholder="0"
+                  value={form.earnings}
                   onChange={function (e) {
-                    updateField("allowances", e.target.value)
+                    updateField("earnings", e.target.value)
                   }}
                 />
               </label>
             </div>
 
-            <label className="full-width">
-              Makato (TZS)
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                value={form.deductions}
-                onChange={function (e) {
-                  updateField("deductions", e.target.value)
-                }}
-              />
-            </label>
+            <div className="form-row">
+              <label>
+                Overtime (TZS)
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={form.overtime}
+                  onChange={function (e) {
+                    updateField("overtime", e.target.value)
+                  }}
+                />
+              </label>
+              <label>
+                Hospital (TZS)
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={form.hospital}
+                  onChange={function (e) {
+                    updateField("hospital", e.target.value)
+                  }}
+                />
+              </label>
+            </div>
 
-            <p className="invoice-total">Jumla ya malipo: {calculateNet().toLocaleString()} TZS</p>
+            <div className="form-row">
+              <label>
+                Fare (TZS)
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={form.fare}
+                  onChange={function (e) {
+                    updateField("fare", e.target.value)
+                  }}
+                />
+              </label>
+              <label>
+                NSSF (TZS)
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={form.nssf}
+                  onChange={function (e) {
+                    updateField("nssf", e.target.value)
+                  }}
+                />
+              </label>
+            </div>
+
+            <p className="invoice-total">Total Deduction: {rowTotalDeduction(form).toLocaleString()} TZS</p>
+            <p className="invoice-total" style={{ fontWeight: "bold" }}>
+              Net Salary: {rowNet(form).toLocaleString()} TZS
+            </p>
 
             <button className="btn-approve submit-income" disabled={busy}>
               {busy ? "Inaongeza..." : "Hifadhi malipo"}
@@ -444,19 +499,19 @@ export default function Payroll() {
 
             <div className="row-list" style={{ marginTop: "12px" }}>
               {employees.map(function (emp) {
-                const row = batchRows[emp.id] || { basic_salary: "", allowances: "", deductions: "" }
+                const row = batchRows[emp.id] || emptyRow()
                 return (
-                  <div className="row-item expense-row" key={emp.id}>
-                    <div style={{ minWidth: "140px" }}>
+                  <div className="row-item expense-row" key={emp.id} style={{ flexWrap: "wrap" }}>
+                    <div style={{ minWidth: "130px" }}>
                       <p className="row-title">{emp.full_name}</p>
-                      <p className="row-sub">Jumla: {batchNet(emp.id).toLocaleString()} TZS</p>
+                      <p className="row-sub">Net: {rowNet(row).toLocaleString()} TZS</p>
                     </div>
                     <div className="expense-actions" style={{ flexWrap: "wrap", gap: "6px" }}>
                       <input
                         type="number"
                         min="0"
-                        placeholder="Msingi"
-                        style={{ width: "90px" }}
+                        placeholder="Basic"
+                        style={{ width: "75px" }}
                         value={row.basic_salary}
                         onChange={function (e) {
                           updateBatchRow(emp.id, "basic_salary", e.target.value)
@@ -465,21 +520,51 @@ export default function Payroll() {
                       <input
                         type="number"
                         min="0"
-                        placeholder="Posho"
-                        style={{ width: "80px" }}
-                        value={row.allowances}
+                        placeholder="Earnings"
+                        style={{ width: "75px" }}
+                        value={row.earnings}
                         onChange={function (e) {
-                          updateBatchRow(emp.id, "allowances", e.target.value)
+                          updateBatchRow(emp.id, "earnings", e.target.value)
                         }}
                       />
                       <input
                         type="number"
                         min="0"
-                        placeholder="Makato"
-                        style={{ width: "80px" }}
-                        value={row.deductions}
+                        placeholder="OT"
+                        style={{ width: "65px" }}
+                        value={row.overtime}
                         onChange={function (e) {
-                          updateBatchRow(emp.id, "deductions", e.target.value)
+                          updateBatchRow(emp.id, "overtime", e.target.value)
+                        }}
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="Hospital"
+                        style={{ width: "75px" }}
+                        value={row.hospital}
+                        onChange={function (e) {
+                          updateBatchRow(emp.id, "hospital", e.target.value)
+                        }}
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="Fare"
+                        style={{ width: "65px" }}
+                        value={row.fare}
+                        onChange={function (e) {
+                          updateBatchRow(emp.id, "fare", e.target.value)
+                        }}
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="NSSF"
+                        style={{ width: "65px" }}
+                        value={row.nssf}
+                        onChange={function (e) {
+                          updateBatchRow(emp.id, "nssf", e.target.value)
                         }}
                       />
                     </div>
@@ -502,7 +587,7 @@ export default function Payroll() {
 
       <div className="panel">
         <div className="panel-header-row">
-          <p className="panel-title">Chapisha Payroll Sheet (kwa kusaini)</p>
+          <p className="panel-title">Chapisha Payroll Sheet</p>
           <div className="header-buttons">
             <input
               type="month"
@@ -517,7 +602,8 @@ export default function Payroll() {
           </div>
         </div>
         <p className="panel-empty" style={{ textAlign: "left" }}>
-          Chagua mwezi hapo juu kisha bonyeza Chapisha — itatoa karatasi yenye safu ya "Sahihi" kwa kila mfanyakazi.
+          Safu: S/N, Staff Name, Basic Salary, Earnings, Overtime, Total Deduction, Hospital, Fare, NSSF, Net Salary, Sahihi.
+          Karatasi inatumia mpangilio wa "landscape" na fonti ndogo ili wafanyakazi zaidi ya 10 waweze kuonekana kwenye ukurasa mmoja.
         </p>
       </div>
 
@@ -535,9 +621,10 @@ export default function Payroll() {
                       {employeeName(r.user_id)} — {monthLabel(r.month)}
                     </p>
                     <p className="row-sub">
-                      Msingi: {Number(r.basic_salary).toLocaleString()} · Posho:{" "}
-                      {Number(r.allowances).toLocaleString()} · Makato:{" "}
-                      {Number(r.deductions).toLocaleString()}
+                      Basic: {Number(r.basic_salary).toLocaleString()} · Earnings:{" "}
+                      {Number(r.allowances || 0).toLocaleString()} · OT: {Number(r.overtime || 0).toLocaleString()} ·
+                      Hospital: {Number(r.hospital || 0).toLocaleString()} · Fare:{" "}
+                      {Number(r.fare || 0).toLocaleString()} · NSSF: {Number(r.nssf || 0).toLocaleString()}
                     </p>
                   </div>
                   <div className="expense-actions">
