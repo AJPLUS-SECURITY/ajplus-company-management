@@ -10,6 +10,7 @@ import ExpenseRequests from "./pages/ExpenseRequests"
 import Invoices from "./pages/Invoices"
 import Payroll from "./pages/Payroll"
 import Stock from "./pages/Stock"
+import Reports from "./pages/Reports"
 
 export default function App() {
   return (
@@ -81,6 +82,16 @@ export default function App() {
               <ProtectedRoute allow={["supervisor", "md", "admin"]}>
                 <DashboardLayout>
                   <Stock />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/reports"
+            element={
+              <ProtectedRoute allow={["fao", "md", "admin"]}>
+                <DashboardLayout>
+                  <Reports />
                 </DashboardLayout>
               </ProtectedRoute>
             }
