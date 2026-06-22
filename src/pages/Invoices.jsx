@@ -627,6 +627,37 @@ export default function Invoices() {
     await loadInvoices()
   }
 
+  async function deleteInvoice(invoice) {
+    setMessage(null)
+
+    const confirmed = window.confirm(
+      "Una hakika unataka kufuta invoice " + invoice.invoice_number + "? Hatua hii haiwezi kurudishwa."
+    )
+    if (!confirmed) {
+      return
+    }
+
+    setBusy(true)
+
+    const itemsDelRes = await supabase.from("invoice_items").delete().eq("invoice_id", invoice.id)
+    if (itemsDelRes.error) {
+      setBusy(false)
+      setMessage({ type: "error", text: itemsDelRes.error.message })
+      return
+    }
+
+    const invoiceDelRes = await supabase.from("invoices").delete().eq("id", invoice.id)
+    setBusy(false)
+
+    if (invoiceDelRes.error) {
+      setMessage({ type: "error", text: invoiceDelRes.error.message })
+      return
+    }
+
+    setMessage({ type: "success", text: "Invoice " + invoice.invoice_number + " imefutwa" })
+    await loadInvoices()
+  }
+
   async function downloadReceipt(invoice) {
     setMessage(null)
     const itemsRes = await supabase
@@ -982,6 +1013,9 @@ export default function Invoices() {
                         Weka kama imelipwa
                       </button>
                     ) : null}
+                    <button className="btn-cancel" style={{ color: "#b3261e" }} onClick={function () { deleteInvoice(inv) }}>
+                      Futa
+                    </button>
                   </div>
                 </div>
               )
