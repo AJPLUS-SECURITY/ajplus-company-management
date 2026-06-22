@@ -68,7 +68,7 @@ export default function App() {
           <Route
             path="/payroll"
             element={
-              <ProtectedRoute allow={["hr", "md", "admin"]}>
+              <ProtectedRoute allow={["hr", "fao", "md", "admin"]}>
                 <DashboardLayout>
                   <Payroll />
                 </DashboardLayout>
