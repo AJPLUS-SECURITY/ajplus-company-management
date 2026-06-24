@@ -12,6 +12,7 @@ const NAV_BY_ROLE = {
     { to: '/price-lists', label: 'Price Lists', icon: 'trend' },
     { to: '/vouchers', label: 'Vouchers', icon: 'cash' },
     { to: '/reviews', label: 'Reviews', icon: 'people' },
+    { to: '/blogs', label: 'Blogs', icon: 'file' },
     { to: '/reports', label: 'Ripoti', icon: 'chart' },
     { to: '/users', label: 'Wafanyakazi', icon: 'people' },
   ],
@@ -24,6 +25,7 @@ const NAV_BY_ROLE = {
     { to: '/price-lists', label: 'Price Lists', icon: 'trend' },
     { to: '/vouchers', label: 'Vouchers', icon: 'cash' },
     { to: '/reviews', label: 'Reviews', icon: 'people' },
+    { to: '/blogs', label: 'Blogs', icon: 'file' },
     { to: '/reports', label: 'Ripoti', icon: 'chart' },
   ],
   hr: [
