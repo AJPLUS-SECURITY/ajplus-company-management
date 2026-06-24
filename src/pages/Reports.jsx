@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react"
 import { supabase } from "../lib/supabase"
 import MetricCard from "../components/MetricCard"
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend,
+} from "recharts"
 
 const INVOICE_STATUS_LABEL = {
   draft: "Rasimu",
@@ -11,9 +15,27 @@ const INVOICE_STATUS_LABEL = {
   cancelled: "Imefutwa",
 }
 
+const INVOICE_STATUS_COLOR = {
+  draft: "#9ca3af",
+  unpaid: "#854f0b",
+  partially_paid: "#d97706",
+  paid: "#085041",
+  overdue: "#b3261e",
+  cancelled: "#6b7280",
+}
+
 function defaultFromDate() {
   const now = new Date()
   return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+}
+
+function startOfYear() {
+  const now = new Date()
+  return new Date(now.getFullYear(), 0, 1).toISOString().slice(0, 10)
+}
+
+function allTimeStart() {
+  return "2023-01-01"
 }
 
 function defaultToDate() {
@@ -227,6 +249,15 @@ export default function Reports() {
           <div className="header-buttons">
             <input type="date" value={fromDate} onChange={function (e) { setFromDate(e.target.value) }} />
             <input type="date" value={toDate} onChange={function (e) { setToDate(e.target.value) }} />
+            <button className="btn-cancel" onClick={function () { setFromDate(defaultFromDate()); setToDate(defaultToDate()) }}>
+              Mwezi huu
+            </button>
+            <button className="btn-cancel" onClick={function () { setFromDate(startOfYear()); setToDate(defaultToDate()) }}>
+              Mwaka huu
+            </button>
+            <button className="btn-cancel" onClick={function () { setFromDate(allTimeStart()); setToDate(defaultToDate()) }}>
+              Tangu Mwanzo
+            </button>
             <button className="btn-cancel" onClick={printReport}>
               Chapisha / Pakua PDF
             </button>
@@ -238,10 +269,52 @@ export default function Reports() {
           <MetricCard label="Matumizi (kipindi)" value={expenseTotal} />
           <MetricCard label="Salio (kipindi)" value={incomeTotal - expenseTotal} color="#085041" />
         </div>
+
+        <div style={{ width: "100%", height: 220, marginTop: "18px" }}>
+          <ResponsiveContainer>
+            <BarChart data={[{ name: "Mapato", value: incomeTotal }, { name: "Matumizi", value: expenseTotal }]}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="name" />
+              <YAxis tickFormatter={function (v) { return (v / 1000).toLocaleString() + "K" }} />
+              <Tooltip formatter={function (v) { return Number(v).toLocaleString() + " TZS" }} />
+              <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                <Cell fill="#1D9E75" />
+                <Cell fill="#b3261e" />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       <div className="panel">
         <p className="panel-title">Invoices kwa Status</p>
+
+        {Object.keys(invoicesByStatus).length > 0 ? (
+          <div style={{ width: "100%", height: 260 }}>
+            <ResponsiveContainer>
+              <PieChart>
+                <Pie
+                  data={Object.keys(invoicesByStatus).map(function (status) {
+                    return { name: INVOICE_STATUS_LABEL[status] || status, value: invoicesByStatus[status].total, status: status }
+                  })}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={90}
+                  label={function (entry) { return entry.name }}
+                >
+                  {Object.keys(invoicesByStatus).map(function (status) {
+                    return <Cell key={status} fill={INVOICE_STATUS_COLOR[status] || "#9ca3af"} />
+                  })}
+                </Pie>
+                <Tooltip formatter={function (v) { return Number(v).toLocaleString() + " TZS" }} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        ) : null}
+
         <div className="row-list">
           {Object.keys(invoicesByStatus).length === 0 ? (
             <p className="panel-empty">Hakuna invoices bado.</p>
@@ -269,6 +342,30 @@ export default function Reports() {
 
       <div className="panel">
         <p className="panel-title">Payroll kwa Mwezi (miezi 6 ya mwisho)</p>
+
+        {payrollByMonth.length > 0 ? (
+          <div style={{ width: "100%", height: 240 }}>
+            <ResponsiveContainer>
+              <BarChart
+                data={payrollByMonth
+                  .slice()
+                  .reverse()
+                  .map(function (p) {
+                    return { month: monthLabel(p.month), Imelipwa: p.paid, Inasubiri: p.pending }
+                  })}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="month" />
+                <YAxis tickFormatter={function (v) { return (v / 1000).toLocaleString() + "K" }} />
+                <Tooltip formatter={function (v) { return Number(v).toLocaleString() + " TZS" }} />
+                <Legend />
+                <Bar dataKey="Imelipwa" fill="#085041" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Inasubiri" fill="#854f0b" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        ) : null}
+
         {payrollByMonth.length === 0 ? (
           <p className="panel-empty">Hakuna payroll bado.</p>
         ) : (
