@@ -25,7 +25,7 @@ function slugify(text) {
 }
 
 export default function Blogs() {
-  const { profile } = useAuth()
+  const { session } = useAuth()
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -152,7 +152,7 @@ export default function Blogs() {
     if (editingId) {
       res = await supabase.from("blog_posts").update(payload).eq("id", editingId)
     } else {
-      res = await supabase.from("blog_posts").insert(Object.assign({}, payload, { created_by: profile.id }))
+      res = await supabase.from("blog_posts").insert(Object.assign({}, payload, { created_by: session.user.id }))
     }
 
     setBusy(false)
