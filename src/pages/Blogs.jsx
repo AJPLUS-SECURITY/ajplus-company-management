@@ -31,6 +31,7 @@ export default function Blogs() {
   const [message, setMessage] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
+  const [uploadingCover, setUploadingCover] = useState(false)
   const [slugTouched, setSlugTouched] = useState(false)
   const [form, setForm] = useState(emptyForm())
 
@@ -89,6 +90,41 @@ export default function Blogs() {
     setShowForm(false)
     setEditingId(null)
     setForm(emptyForm())
+  }
+
+  async function handleCoverUpload(e) {
+    const file = e.target.files[0]
+    if (!file) {
+      return
+    }
+
+    setUploadingCover(true)
+    setMessage(null)
+
+    const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "")
+    const path = "covers/" + Date.now() + "-" + safeName
+
+    const uploadRes = await supabase.storage.from("blog-covers").upload(path, file, {
+      cacheControl: "3600",
+      upsert: false,
+    })
+
+    if (uploadRes.error) {
+      setUploadingCover(false)
+      setMessage({ type: "error", text: "Imeshindwa kupakia picha: " + uploadRes.error.message })
+      return
+    }
+
+    const publicUrlRes = supabase.storage.from("blog-covers").getPublicUrl(path)
+    const publicUrl = publicUrlRes.data ? publicUrlRes.data.publicUrl : null
+
+    setUploadingCover(false)
+
+    if (publicUrl) {
+      updateField("cover_image_url", publicUrl)
+    } else {
+      setMessage({ type: "error", text: "Picha imepakiwa lakini URL haijapatikana" })
+    }
   }
 
   async function handleSubmit(e) {
@@ -194,10 +230,20 @@ export default function Blogs() {
                 <input type="text" placeholder="mfano: AJ Plus Team" value={form.author} onChange={function (e) { updateField("author", e.target.value) }} />
               </label>
               <label>
-                Picha ya Jalada (Cover Image URL)
-                <input type="text" placeholder="https://...jpg" value={form.cover_image_url} onChange={function (e) { updateField("cover_image_url", e.target.value) }} />
+                Picha ya Jalada (Cover Image)
+                <input type="file" accept="image/*" onChange={handleCoverUpload} disabled={uploadingCover} />
               </label>
             </div>
+
+            {uploadingCover ? <p className="row-sub">Inapakia picha...</p> : null}
+            {form.cover_image_url ? (
+              <div style={{ marginBottom: "16px" }}>
+                <img src={form.cover_image_url} alt="Cover preview" style={{ maxWidth: "220px", borderRadius: "8px", display: "block", marginBottom: "8px" }} />
+                <button type="button" className="btn-cancel" onClick={function () { updateField("cover_image_url", "") }}>
+                  Futa Picha
+                </button>
+              </div>
+            ) : null}
 
             <label className="full-width">
               Muhtasari Mfupi (Excerpt)
