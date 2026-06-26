@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { supabase } from "../lib/supabase"
 import { useAuth } from "../contexts/AuthContext"
+import YuccaAIRefine from "../components/YuccaAIRefine"
 
 function emptyForm() {
   return {
@@ -224,6 +225,8 @@ export default function Blogs() {
               </label>
             </div>
 
+            <YuccaAIRefine text={form.title} onRefined={function (refined) { updateField("title", refined) }} />
+
             <div className="form-row">
               <label>
                 Mwandishi (Author)
@@ -250,10 +253,14 @@ export default function Blogs() {
               <input type="text" placeholder="sentensi 1-2 zinazoonekana kwenye orodha ya blogs" value={form.excerpt} onChange={function (e) { updateField("excerpt", e.target.value) }} />
             </label>
 
+            <YuccaAIRefine text={form.excerpt} onRefined={function (refined) { updateField("excerpt", refined) }} />
+
             <label className="full-width">
               Maudhui Kamili (Content)
               <textarea placeholder="Andika makala nzima hapa. Unaweza kutumia &lt;p&gt;, &lt;h2&gt;, &lt;strong&gt; n.k. kwa muundo." value={form.content} onChange={function (e) { updateField("content", e.target.value) }} />
             </label>
+
+            <YuccaAIRefine text={form.content} onRefined={function (refined) { updateField("content", refined) }} />
 
             <button className="btn-approve submit-income" disabled={busy}>
               {busy ? "Inahifadhi..." : editingId ? "Sasisha chapisho" : "Hifadhi chapisho"}
