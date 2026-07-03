@@ -178,6 +178,58 @@ const PAYMENT_SECTION_CSS =
   ".terms{font-size:11px;color:#555;margin-top:16px;line-height:1.5;background:#f7f7f7;padding:10px;border-radius:6px;}" +
   ".vat-row{font-size:13px;text-align:right;margin:2px 0;}"
 
+const VERIFY_SECTION_CSS =
+  ".verify-section{display:flex;align-items:center;gap:16px;background:#f3f6f4;border:1px dashed #1D9E75;border-radius:8px;padding:12px 16px;margin-top:14px;}" +
+  ".verify-section img{width:88px;height:88px;flex-shrink:0;}" +
+  ".verify-text p{margin:2px 0;font-size:11px;color:#085041;}" +
+  ".verify-text .verify-code{font-family:monospace;font-weight:bold;font-size:13px;letter-spacing:1px;}" +
+  ".verify-text a{color:#1D9E75;word-break:break-all;}"
+
+// Deterministic short verification code, mfano wa EFD verification code — haitegemei database ya ziada.
+function makeVerificationCode(invoiceNumber, totalAmount) {
+  const raw = String(invoiceNumber) + "|" + String(Math.round(Number(totalAmount) || 0))
+  let hash = 0
+  for (let i = 0; i < raw.length; i += 1) {
+    hash = (hash * 31 + raw.charCodeAt(i)) >>> 0
+  }
+  return hash.toString(36).toUpperCase().padStart(8, "0").slice(0, 8)
+}
+
+function invoiceVerifySectionHtml(invoice, lang) {
+  const isSw = lang !== "en"
+  const verifyCode = makeVerificationCode(invoice.invoice_number, invoice.total_amount)
+  const publicUrl =
+    invoice.public_token
+      ? window.location.origin + "/invoice/" + invoice.public_token
+      : null
+
+  const summaryLines = [
+    "AJ PLUS COMPANY LIMITED",
+    (isSw ? "Invoice" : "Invoice") + ": " + invoice.invoice_number,
+    (isSw ? "Mteja" : "Client") + ": " + (invoice.client ? invoice.client.name : ""),
+    (isSw ? "Jumla" : "Total") + ": " + Number(invoice.total_amount).toLocaleString() + " TZS",
+    (isSw ? "Tarehe" : "Date") + ": " + (invoice.issue_date || ""),
+    (isSw ? "Namba ya Uthibitisho" : "Verification Code") + ": " + verifyCode,
+  ]
+  if (publicUrl) {
+    summaryLines.push((isSw ? "Angalia invoice kamili" : "View full invoice") + ": " + publicUrl)
+  }
+  const qrData = summaryLines.join("\n")
+  const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=" + encodeURIComponent(qrData)
+
+  return (
+    "<div class='verify-section'>" +
+    "<img src='" + qrUrl + "' alt='Verification QR' />" +
+    "<div class='verify-text'>" +
+    "<p>" + (isSw ? "Namba ya Uthibitisho" : "Verification Code") + ": <span class='verify-code'>" + verifyCode + "</span></p>" +
+    (publicUrl
+      ? "<p>" + (isSw ? "Kagua QR au fungua link kuona invoice kamili:" : "Scan the QR or open the link to view the full invoice:") + "</p><p><a href='" + publicUrl + "'>" + publicUrl + "</a></p>"
+      : "<p>" + (isSw ? "Kagua QR kuona muhtasari wa invoice hii." : "Scan the QR to see this invoice's summary.") + "</p>") +
+    "</div>" +
+    "</div>"
+  )
+}
+
 function emptyItem() {
   return { description: "", quantity: 1, unit_price: "" }
 }
@@ -251,7 +303,7 @@ export default function Invoices() {
     const res = await supabase
       .from("invoices")
       .select(
-        "id, invoice_number, status, subtotal, total_amount, amount_paid, due_date, issue_date, client_id, client:clients(name, phone), service_line:service_lines(name)"
+        "id, invoice_number, status, subtotal, total_amount, amount_paid, due_date, issue_date, client_id, public_token, client:clients(name, phone), service_line:service_lines(name)"
       )
       .order("created_at", { ascending: false })
       .limit(30)
@@ -715,6 +767,7 @@ export default function Invoices() {
       ".info p{margin:4px 0;font-size:13px;}" +
       ".status-pill{display:inline-block;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:bold;color:" + statusColor + ";background:" + statusBg + ";margin-top:6px;}" +
       ".footer{margin-top:24px;font-size:11px;color:#666;text-align:center;}" +
+      VERIFY_SECTION_CSS +
       PAYMENT_SECTION_CSS +
       "@media print{button{display:none;}}" +
       "</style></head><body>" +
@@ -732,6 +785,7 @@ export default function Invoices() {
       "<p class='vat-row'>" + t.subtotal + ": " + subtotalAmount.toLocaleString() + " TZS</p>" +
       "<p class='vat-row'>" + t.vatLabel + ": " + vatAmountDisplay.toLocaleString() + " TZS</p>" +
       "<p class='total-row'>" + t.grandTotal + ": " + grandTotalAmount.toLocaleString() + " TZS</p>" +
+      invoiceVerifySectionHtml(invoice, docLang) +
       paymentInfoHtml(docLang, {
         amount: grandTotalAmount,
         service: serviceLineName,

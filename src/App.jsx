@@ -15,6 +15,7 @@ import PriceLists from "./pages/PriceLists"
 import Vouchers from "./pages/Vouchers"
 import Reviews from "./pages/Reviews"
 import Blogs from "./pages/Blogs"
+import PublicInvoice from "./pages/PublicInvoice"
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/invoice/:token" element={<PublicInvoice />} />
           <Route
             path="/"
             element={
