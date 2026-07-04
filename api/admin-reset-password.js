@@ -10,25 +10,15 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const debugEnv = {
-    has_url: Boolean(process.env.SUPABASE_URL),
-    has_service_key: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
-    url_value: process.env.SUPABASE_URL,
-    service_key_length: process.env.SUPABASE_SERVICE_ROLE_KEY?.length,
-    service_key_role_hint: process.env.SUPABASE_SERVICE_ROLE_KEY
-      ? JSON.parse(Buffer.from(process.env.SUPABASE_SERVICE_ROLE_KEY.split('.')[1], 'base64').toString()).role
-      : null,
-  }
-
   const authHeader = req.headers.authorization
   if (!authHeader) {
-    return res.status(401).json({ error: 'Hauna ruhusa', debugEnv })
+    return res.status(401).json({ error: 'Hauna ruhusa' })
   }
   const token = authHeader.replace('Bearer ', '')
 
   const { data: callerData, error: callerError } = await supabaseAdmin.auth.getUser(token)
   if (callerError || !callerData?.user) {
-    return res.status(401).json({ error: 'Token si sahihi', debugEnv })
+    return res.status(401).json({ error: 'Token si sahihi' })
   }
 
   const { data: callerProfile, error: profileError } = await supabaseAdmin
@@ -38,13 +28,7 @@ export default async function handler(req, res) {
     .single()
 
   if (profileError || !callerProfile) {
-    return res.status(403).json({
-      error: 'Profile haipo',
-      debug_auth_id: callerData.user.id,
-      debug_profile_error: profileError?.message,
-      debug_profile_code: profileError?.code,
-      debugEnv,
-    })
+    return res.status(403).json({ error: 'Profile haipo' })
   }
 
   const callerRole = callerProfile.role?.name
