@@ -266,6 +266,14 @@ export default function Invoices() {
     vehicle_number: "",
   })
 
+  const [showStatementForm, setShowStatementForm] = useState(false)
+  const [statementClientId, setStatementClientId] = useState("")
+  const [statementInvoices, setStatementInvoices] = useState([])
+  const [statementLoadingInv, setStatementLoadingInv] = useState(false)
+  const [statementExtraItems, setStatementExtraItems] = useState([
+    { description: "", item_date: "", amount: "", status: "unpaid" },
+  ])
+
   useEffect(() => {
     loadAll()
   }, [])
@@ -812,6 +820,174 @@ export default function Invoices() {
     printWindow.document.close()
   }
 
+  async function loadStatementInvoices(clientId) {
+    setStatementClientId(clientId)
+    if (!clientId) {
+      setStatementInvoices([])
+      return
+    }
+    setStatementLoadingInv(true)
+    const res = await supabase
+      .from("invoices")
+      .select("id, invoice_number, issue_date, status, total_amount")
+      .eq("client_id", clientId)
+      .order("issue_date", { ascending: true })
+    setStatementInvoices(
+      (res.data || []).map(function (inv) {
+        return Object.assign({}, inv, { included: true })
+      })
+    )
+    setStatementLoadingInv(false)
+  }
+
+  function toggleStatementInvoice(id) {
+    setStatementInvoices(function (list) {
+      return list.map(function (inv) {
+        if (inv.id === id) {
+          return Object.assign({}, inv, { included: !inv.included })
+        }
+        return inv
+      })
+    })
+  }
+
+  function updateStatementExtraItem(index, field, value) {
+    setStatementExtraItems(function (items) {
+      const copy = items.slice()
+      copy[index] = Object.assign({}, copy[index])
+      copy[index][field] = value
+      return copy
+    })
+  }
+
+  function addStatementExtraItem() {
+    setStatementExtraItems(function (items) {
+      return items.concat([{ description: "", item_date: "", amount: "", status: "unpaid" }])
+    })
+  }
+
+  function removeStatementExtraItem(index) {
+    setStatementExtraItems(function (items) {
+      return items.filter(function (_, i) {
+        return i !== index
+      })
+    })
+  }
+
+  // Statement of Account: muhtasari wa kumbukumbu unaounganisha invoices zilizopo na kazi
+  // zisizo na invoice rasmi. HAIANDIKI chochote kwenye database (si invoice mpya), kwa hiyo
+  // haiathiri Reports wala Mapato (income_records) - ni document ya kuchapisha tu.
+  function downloadStatement() {
+    setMessage(null)
+    const client = clients.find(function (c) { return c.id === statementClientId })
+    if (!client) {
+      setMessage({ type: "error", text: "Chagua mteja kwanza" })
+      return
+    }
+
+    const includedInvoices = statementInvoices.filter(function (inv) { return inv.included })
+    const validExtra = statementExtraItems.filter(function (item) {
+      return item.description && Number(item.amount) > 0
+    })
+
+    if (includedInvoices.length === 0 && validExtra.length === 0) {
+      setMessage({ type: "error", text: "Hakuna kipengele chochote cha kuingiza kwenye statement" })
+      return
+    }
+
+    const rows = includedInvoices
+      .map(function (inv) {
+        return {
+          date: inv.issue_date || "-",
+          description: "Invoice " + inv.invoice_number,
+          amount: Number(inv.total_amount) || 0,
+          statusLabel: STATUS_LABEL[inv.status] || inv.status,
+          isPaid: inv.status === "paid",
+        }
+      })
+      .concat(
+        validExtra.map(function (item) {
+          return {
+            date: item.item_date || "-",
+            description: item.description + " (kazi bila invoice rasmi)",
+            amount: Number(item.amount) || 0,
+            statusLabel: item.status === "paid" ? "Imelipwa" : "Haijalipwa",
+            isPaid: item.status === "paid",
+          }
+        })
+      )
+      .sort(function (a, b) {
+        if (a.date === b.date) return 0
+        return a.date < b.date ? -1 : 1
+      })
+
+    const grandTotal = rows.reduce(function (sum, r) { return sum + r.amount }, 0)
+    const outstandingTotal = rows.reduce(function (sum, r) { return r.isPaid ? sum : sum + r.amount }, 0)
+    const logoUrl = window.location.origin + "/logo.png"
+    const now = new Date()
+
+    const rowsHtml = rows
+      .map(function (r) {
+        return (
+          "<tr>" +
+          "<td>" + r.date + "</td>" +
+          "<td>" + r.description + "</td>" +
+          "<td style='text-align:right'>" + r.amount.toLocaleString() + "</td>" +
+          "<td style='text-align:center'>" + r.statusLabel + "</td>" +
+          "</tr>"
+        )
+      })
+      .join("")
+
+    const html =
+      "<html><head><title>Statement - " + client.name + "</title>" +
+      "<style>" +
+      "body{font-family:Arial,Helvetica,sans-serif;padding:36px;color:#1a1a1a;}" +
+      ".header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1D9E75;padding-bottom:16px;margin-bottom:24px;}" +
+      ".header img{height:60px;}" +
+      "h1{color:#085041;font-size:20px;margin:0;}" +
+      "h2{font-size:18px;margin-top:24px;}" +
+      "table{width:100%;border-collapse:collapse;margin-top:16px;}" +
+      "th,td{padding:8px;border-bottom:1px solid #ddd;font-size:13px;}" +
+      "th{text-align:left;background:#f3f6f4;}" +
+      ".total-row{font-weight:bold;font-size:16px;margin-top:10px;text-align:right;}" +
+      ".info p{margin:4px 0;font-size:13px;}" +
+      ".note{margin-top:16px;font-size:12px;color:#854f0b;background:#faeeda;padding:10px;border-radius:6px;}" +
+      ".footer{margin-top:24px;font-size:11px;color:#666;text-align:center;}" +
+      PAYMENT_SECTION_CSS +
+      "@media print{button{display:none;}}" +
+      "</style></head><body>" +
+      companyHeaderHtml(logoUrl, docLang) +
+      "<h2>MUHTASARI WA MALIPO / STATEMENT OF ACCOUNT</h2>" +
+      "<div class='info'>" +
+      "<p><strong>Mteja:</strong> " + client.name + "</p>" +
+      "<p><strong>Tarehe ya kutolewa:</strong> " + now.toLocaleDateString("en-GB") + "</p>" +
+      "</div>" +
+      "<table><thead><tr><th>Tarehe</th><th>Maelezo</th><th>Kiasi (TZS)</th><th>Hali</th></tr></thead>" +
+      "<tbody>" + rowsHtml + "</tbody></table>" +
+      "<p class='total-row'>JUMLA YA KAZI ZOTE: " + grandTotal.toLocaleString() + " TZS</p>" +
+      (outstandingTotal > 0
+        ? "<p class='total-row' style='color:#b3261e;'>JUMLA INAYODAIWA (bado haijalipwa): " + outstandingTotal.toLocaleString() + " TZS</p>"
+        : "") +
+      "<p class='note'>Hii ni muhtasari wa kumbukumbu (statement) unaoonesha kazi zote zilizofanyika kati yetu na " +
+      client.name +
+      " kuanzia mwanzo hadi sasa. Hii SIYO invoice mpya wala hairejeshi upya malipo yaliyokwishafanywa.</p>" +
+      (outstandingTotal > 0
+        ? paymentInfoHtml(docLang, { amount: outstandingTotal, service: "Statement ya Malipo", docNumber: "STMT-" + now.getTime() })
+        : "") +
+      "<p class='footer'>Asante kwa kufanya kazi na AJ PLUS COMPANY LIMITED.</p>" +
+      "<script>window.onload = function(){ window.print(); }</script>" +
+      "</body></html>"
+
+    const printWindow = window.open("", "_blank")
+    if (!printWindow) {
+      setMessage({ type: "error", text: "Browser imezuia dirisha jipya. Ruhusu pop-ups kisha jaribu tena." })
+      return
+    }
+    printWindow.document.write(html)
+    printWindow.document.close()
+  }
+
   function shareWhatsApp(invoice) {
     const clientPhone = invoice.client ? invoice.client.phone : ""
     const clientName = invoice.client ? invoice.client.name : ""
@@ -859,6 +1035,9 @@ export default function Invoices() {
             </select>
             <button className="btn-cancel" onClick={function () { setShowClientForm(!showClientForm) }}>
               {showClientForm ? "Funga" : "Ongeza mteja"}
+            </button>
+            <button className="btn-cancel" onClick={function () { setShowStatementForm(!showStatementForm) }}>
+              {showStatementForm ? "Funga Statement" : "Statement ya Mteja"}
             </button>
             <button className="btn-approve" onClick={function () { setShowForm(!showForm) }}>
               {showForm ? "Funga fomu" : "Tengeneza invoice"}
@@ -912,6 +1091,109 @@ export default function Invoices() {
               {busy ? "Inaongeza..." : "Hifadhi mteja"}
             </button>
           </form>
+        ) : null}
+
+        {showStatementForm ? (
+          <div className="income-form">
+            <p className="note" style={{ background: "#e1f5ee", color: "#085041", padding: "10px", borderRadius: "6px", fontSize: "12px" }}>
+              Statement ni muhtasari wa kumbukumbu tu - haitengenezi invoice mpya na haiathiri Reports wala Mapato.
+            </p>
+
+            <label>
+              Mteja
+              <select
+                value={statementClientId}
+                onChange={function (e) { loadStatementInvoices(e.target.value) }}
+              >
+                <option value="">-- Chagua mteja --</option>
+                {clients.map(function (c) {
+                  return (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  )
+                })}
+              </select>
+            </label>
+
+            {statementClientId ? (
+              <div>
+                <p className="items-title">Invoices zilizopo za mteja huyu</p>
+                {statementLoadingInv ? (
+                  <p className="panel-empty">Inapakia...</p>
+                ) : statementInvoices.length === 0 ? (
+                  <p className="panel-empty">Mteja huyu hana invoice yoyote iliyopo.</p>
+                ) : (
+                  <div className="row-list">
+                    {statementInvoices.map(function (inv) {
+                      return (
+                        <div className="row-item" key={inv.id}>
+                          <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <input
+                              type="checkbox"
+                              checked={inv.included}
+                              onChange={function () { toggleStatementInvoice(inv.id) }}
+                            />
+                            <span>{inv.invoice_number} - {inv.issue_date || "-"} - {STATUS_LABEL[inv.status] || inv.status}</span>
+                          </label>
+                          <span className="row-amount">{Number(inv.total_amount).toLocaleString()} TZS</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                <p className="items-title">Kazi bila invoice rasmi (hiari)</p>
+                {statementExtraItems.map(function (item, index) {
+                  return (
+                    <div className="item-row" key={index}>
+                      <input
+                        type="text"
+                        placeholder="maelezo ya kazi"
+                        value={item.description}
+                        onChange={function (e) { updateStatementExtraItem(index, "description", e.target.value) }}
+                      />
+                      <input
+                        type="date"
+                        value={item.item_date}
+                        onChange={function (e) { updateStatementExtraItem(index, "item_date", e.target.value) }}
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="kiasi TZS"
+                        value={item.amount}
+                        onChange={function (e) { updateStatementExtraItem(index, "amount", e.target.value) }}
+                      />
+                      <select
+                        value={item.status}
+                        onChange={function (e) { updateStatementExtraItem(index, "status", e.target.value) }}
+                      >
+                        <option value="unpaid">Haijalipwa</option>
+                        <option value="paid">Imelipwa</option>
+                      </select>
+                      {statementExtraItems.length > 1 ? (
+                        <button type="button" className="btn-cancel" onClick={function () { removeStatementExtraItem(index) }}>
+                          Toa
+                        </button>
+                      ) : null}
+                    </div>
+                  )
+                })}
+
+                <button type="button" className="btn-cancel add-item-btn" onClick={addStatementExtraItem}>
+                  Ongeza kazi nyingine
+                </button>
+
+                <div className="header-buttons" style={{ marginTop: "14px" }}>
+                  <button type="button" className="btn-approve" onClick={downloadStatement}>
+                    Pakua Statement (PDF)
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
         ) : null}
 
         {showForm ? (
