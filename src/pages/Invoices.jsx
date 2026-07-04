@@ -257,6 +257,7 @@ export default function Invoices() {
     client_id: "",
     service_line_id: "",
     due_date: "",
+    apply_vat: true,
     items: [emptyItem()],
   })
 
@@ -404,6 +405,9 @@ export default function Invoices() {
   }
 
   function calculateVat() {
+    if (!form.apply_vat) {
+      return 0
+    }
     return calculateTotal() * VAT_RATE
   }
 
@@ -485,7 +489,9 @@ export default function Invoices() {
       "<table><thead><tr><th>" + t.description + "</th><th>" + t.qty + "</th><th>" + t.price + "</th><th>" + t.lineTotal + "</th></tr></thead>" +
       "<tbody>" + rowsHtml + "</tbody></table>" +
       "<p class='vat-row'>" + t.subtotal + ": " + subtotalAmount.toLocaleString() + " TZS</p>" +
-      "<p class='vat-row'>" + t.vatLabel + ": " + vatAmountDisplay.toLocaleString() + " TZS</p>" +
+      (form.apply_vat
+        ? "<p class='vat-row'>" + t.vatLabel + ": " + vatAmountDisplay.toLocaleString() + " TZS</p>"
+        : "") +
       "<p class='total-row'>" + t.estTotal + ": " + grandTotalAmount.toLocaleString() + " TZS</p>" +
       "<p class='note'>" + t.quoteNote + "</p>" +
       paymentInfoHtml(docLang, {
@@ -607,7 +613,6 @@ export default function Invoices() {
     setBusy(true)
 
     const subtotal = calculateTotal()
-    const vatAmount = calculateVat()
     const grandTotal = calculateGrandTotal()
     const invoiceNumber = generateInvoiceNumber()
 
@@ -656,6 +661,7 @@ export default function Invoices() {
     setForm(function (f) {
       const copy = Object.assign({}, f)
       copy.due_date = ""
+      copy.apply_vat = true
       copy.items = [emptyItem()]
       return copy
     })
@@ -783,7 +789,9 @@ export default function Invoices() {
       "<table><thead><tr><th>" + t.description + "</th><th>" + t.qty + "</th><th>" + t.price + "</th><th>" + t.lineTotal + "</th></tr></thead>" +
       "<tbody>" + rowsHtml + "</tbody></table>" +
       "<p class='vat-row'>" + t.subtotal + ": " + subtotalAmount.toLocaleString() + " TZS</p>" +
-      "<p class='vat-row'>" + t.vatLabel + ": " + vatAmountDisplay.toLocaleString() + " TZS</p>" +
+      (vatAmountDisplay > 0
+        ? "<p class='vat-row'>" + t.vatLabel + ": " + vatAmountDisplay.toLocaleString() + " TZS</p>"
+        : "") +
       "<p class='total-row'>" + t.grandTotal + ": " + grandTotalAmount.toLocaleString() + " TZS</p>" +
       invoiceVerifySectionHtml(invoice, docLang) +
       paymentInfoHtml(docLang, {
@@ -988,9 +996,22 @@ export default function Invoices() {
               Ongeza kitu kingine
             </button>
 
+            <label className="vat-toggle" style={{ display: "flex", alignItems: "center", gap: "8px", margin: "14px 0" }}>
+              <input
+                type="checkbox"
+                checked={form.apply_vat}
+                onChange={function (e) { updateField("apply_vat", e.target.checked) }}
+              />
+              Weka VAT (18%) kwenye invoice hii
+            </label>
+
             <div className="vat-breakdown">
               <p className="invoice-total">Jumla ndogo: {calculateTotal().toLocaleString()} TZS</p>
-              <p className="invoice-total">VAT (18%): {calculateVat().toLocaleString()} TZS</p>
+              {form.apply_vat ? (
+                <p className="invoice-total">VAT (18%): {calculateVat().toLocaleString()} TZS</p>
+              ) : (
+                <p className="invoice-total" style={{ color: "#854f0b" }}>Hakuna VAT kwenye invoice hii</p>
+              )}
               <p className="invoice-total" style={{ fontWeight: "bold" }}>
                 Jumla kuu: {calculateGrandTotal().toLocaleString()} TZS
               </p>
