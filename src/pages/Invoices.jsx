@@ -49,8 +49,8 @@ const DOC_TEXT = {
     bankAccName: "Jina la Akaunti",
     scanHint: "Kagua (scan) kupata taarifa za malipo",
     terms:
-      "Masharti ya malipo: Tafadhali kamilisha malipo ndani ya siku 14 kuanzia tarehe ya hati hii. " +
-      "Malipo yaliyochelewa zaidi ya siku 30 yanaweza kutozwa riba ya ziada ya makubaliano. " +
+      "Masharti ya malipo: Tafadhali kamilisha malipo ndani ya siku 7 kuanzia tarehe ya hati hii. " +
+      "Malipo yaliyochelewa zaidi ya siku 14 yanaweza kutozwa riba ya ziada ya makubaliano. " +
       "Kwa maswali yoyote kuhusu malipo, tafadhali wasiliana nasi moja kwa moja. " +
       "Asante kwa kuchagua AJ PLUS COMPANY LIMITED &mdash; tunathamini ushirikiano wako.",
     thanksInvoice: "Asante kwa kufanya kazi na AJ PLUS COMPANY LIMITED.",
@@ -91,8 +91,8 @@ const DOC_TEXT = {
     bankAccName: "Account Name",
     scanHint: "Scan to view payment details",
     terms:
-      "Payment Terms: Please complete payment within 14 days from the date of this document. " +
-      "Payments delayed beyond 30 days may incur an agreed additional interest charge. " +
+      "Payment Terms: Please complete payment within 7 days from the date of this document. " +
+      "Payments delayed beyond 14 days may incur an agreed additional interest charge. " +
       "For any payment questions, please contact us directly. " +
       "Thank you for choosing AJ PLUS COMPANY LIMITED &mdash; we value our partnership with you.",
     thanksInvoice: "Thank you for doing business with AJ PLUS COMPANY LIMITED.",
