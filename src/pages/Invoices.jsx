@@ -145,7 +145,7 @@ function paymentInfoHtml(lang, details) {
   if (info.amount) {
     qrText += " | " + (lang === "en" ? "Amount" : "Kiasi") + ": " + Number(info.amount).toLocaleString() + " TZS"
   }
-  qrText += " | NMB Tegeta: 23510095544 | Lipa Namba (Yas): 44934738"
+  qrText += " | NMB Tegeta: 23510095544 | CRDB Tegeta: 0152848501600 | Lipa Namba (Yas): 44934738"
   const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=" + encodeURIComponent(qrText)
 
   return (
@@ -156,6 +156,9 @@ function paymentInfoHtml(lang, details) {
     "<p><strong>Bank: NMB Bank, Tegeta Branch</strong></p>" +
     "<p>" + t.bankAccNum + ": 23510095544</p>" +
     "<p>" + t.bankAccName + ": AJPLUS Company Limited</p>" +
+    "<p style='margin-top:10px;'><strong>Bank: CRDB Bank, Tegeta Branch</strong></p>" +
+    "<p>" + t.bankAccNum + ": 0152848501600</p>" +
+    "<p>" + t.bankAccName + ": John F. Mfoi</p>" +
     "<p style='margin-top:10px;'><strong>Lipa by Mixx by Yas</strong></p>" +
     "<p>Lipa Namba: 44934738</p>" +
     "<p>" + t.bankAccName + ": AJPLUS Company Limited</p>" +
