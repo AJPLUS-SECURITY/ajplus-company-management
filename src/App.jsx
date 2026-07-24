@@ -16,6 +16,7 @@ import Vouchers from "./pages/Vouchers"
 import Reviews from "./pages/Reviews"
 import Blogs from "./pages/Blogs"
 import PublicInvoice from "./pages/PublicInvoice"
+import Settings from "./pages/Settings"
 
 export default function App() {
   return (
@@ -138,6 +139,16 @@ export default function App() {
               <ProtectedRoute allow={["fao", "md", "admin"]}>
                 <DashboardLayout>
                   <Blogs />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute allow={["md", "admin"]}>
+                <DashboardLayout>
+                  <Settings />
                 </DashboardLayout>
               </ProtectedRoute>
             }

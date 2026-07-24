@@ -132,9 +132,11 @@ function companyHeaderHtml(logoUrl, lang) {
   )
 }
 
-function paymentInfoHtml(lang, details) {
+function paymentInfoHtml(lang, details, paymentAccounts) {
   const t = DOC_TEXT[lang] || DOC_TEXT.sw
   const info = details || {}
+  const accounts = (paymentAccounts || []).filter(function (a) { return a.is_active })
+
   let qrText = "AJ PLUS COMPANY LIMITED"
   if (info.docNumber) {
     qrText += " | " + info.docNumber
@@ -145,23 +147,31 @@ function paymentInfoHtml(lang, details) {
   if (info.amount) {
     qrText += " | " + (lang === "en" ? "Amount" : "Kiasi") + ": " + Number(info.amount).toLocaleString() + " TZS"
   }
-  qrText += " | NMB Tegeta: 23510095544 | CRDB Tegeta: 0152848501600 | Lipa Namba (Yas): 44934738"
+  accounts.forEach(function (a) {
+    const shortLabel = a.type === "bank" ? (a.bank_name || "Bank") : (a.bank_name || "Mobile Money")
+    qrText += " | " + shortLabel + ": " + a.account_number
+  })
   const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=" + encodeURIComponent(qrText)
+
+  let accountsHtml = ""
+  accounts.forEach(function (a, idx) {
+    const marginStyle = idx > 0 ? " style='margin-top:10px;'" : ""
+    const titleLine = a.type === "bank"
+      ? "<p" + marginStyle + "><strong>Bank: " + a.bank_name + (a.branch ? ", " + a.branch : "") + "</strong></p>"
+      : "<p" + marginStyle + "><strong>" + a.bank_name + "</strong></p>"
+    const numLabel = a.type === "bank" ? t.bankAccNum : (lang === "en" ? "Account Number" : "Lipa Namba")
+    accountsHtml +=
+      titleLine +
+      "<p>" + numLabel + ": " + a.account_number + "</p>" +
+      "<p>" + t.bankAccName + ": " + a.account_name + "</p>"
+  })
 
   return (
     "<div class='pay-section'>" +
     "<h3>" + t.paymentMethods + "</h3>" +
     "<div class='pay-grid'>" +
     "<div class='pay-col'>" +
-    "<p><strong>Bank: NMB Bank, Tegeta Branch</strong></p>" +
-    "<p>" + t.bankAccNum + ": 23510095544</p>" +
-    "<p>" + t.bankAccName + ": AJPLUS Company Limited</p>" +
-    "<p style='margin-top:10px;'><strong>Bank: CRDB Bank, Tegeta Branch</strong></p>" +
-    "<p>" + t.bankAccNum + ": 0152848501600</p>" +
-    "<p>" + t.bankAccName + ": John F. Mfoi</p>" +
-    "<p style='margin-top:10px;'><strong>Lipa by Mixx by Yas</strong></p>" +
-    "<p>Lipa Namba: 44934738</p>" +
-    "<p>" + t.bankAccName + ": AJPLUS Company Limited</p>" +
+    accountsHtml +
     "</div>" +
     "<div class='pay-col' style='text-align:center;'>" +
     "<img src='" + qrUrl + "' alt='QR' style='width:110px;height:110px;' />" +
@@ -242,6 +252,7 @@ export default function Invoices() {
   const [serviceLines, setServiceLines] = useState([])
   const [clients, setClients] = useState([])
   const [invoices, setInvoices] = useState([])
+  const [paymentAccounts, setPaymentAccounts] = useState([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState(null)
@@ -284,9 +295,14 @@ export default function Invoices() {
   async function loadAll() {
     const slRes = await supabase.from("service_lines").select("id, name").order("name")
     const clientRes = await supabase.from("clients").select("id, name").order("name")
+    const payRes = await supabase
+      .from("payment_accounts")
+      .select("id, type, bank_name, branch, account_number, account_name, is_active, sort_order")
+      .order("sort_order")
 
     setServiceLines(slRes.data || [])
     setClients(clientRes.data || [])
+    setPaymentAccounts(payRes.data || [])
 
     if (slRes.data && slRes.data.length > 0) {
       setForm(function (f) {
@@ -509,7 +525,7 @@ export default function Invoices() {
         amount: grandTotalAmount,
         service: serviceLine ? serviceLine.name : "",
         docNumber: quoteNumber,
-      }) +
+      }, paymentAccounts) +
       "<script>window.onload = function(){ window.print(); }</script>" +
       "</body></html>"
 
@@ -809,7 +825,7 @@ export default function Invoices() {
         amount: grandTotalAmount,
         service: serviceLineName,
         docNumber: invoice.invoice_number,
-      }) +
+      }, paymentAccounts) +
       "<p class='footer'>" + t.thanksInvoice + "</p>" +
       "<script>window.onload = function(){ window.print(); }</script>" +
       "</body></html>"
@@ -976,7 +992,7 @@ export default function Invoices() {
       client.name +
       " kuanzia mwanzo hadi sasa. Hii SIYO invoice mpya wala hairejeshi upya malipo yaliyokwishafanywa.</p>" +
       (outstandingTotal > 0
-        ? paymentInfoHtml(docLang, { amount: outstandingTotal, service: "Statement ya Malipo", docNumber: "STMT-" + now.getTime() })
+        ? paymentInfoHtml(docLang, { amount: outstandingTotal, service: "Statement ya Malipo", docNumber: "STMT-" + now.getTime() }, paymentAccounts)
         : "") +
       "<p class='footer'>Asante kwa kufanya kazi na AJ PLUS COMPANY LIMITED.</p>" +
       "<script>window.onload = function(){ window.print(); }</script>" +
