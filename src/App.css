@@ -218,3 +218,95 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+.payroll-table-wrap {
+  overflow-x: auto;
+  max-height: 70vh;
+  overflow-y: auto;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+}
+
+.payroll-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12.5px;
+}
+
+.payroll-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f4f3ef;
+  color: #4a4944;
+  font-weight: 500;
+  padding: 10px 8px;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  z-index: 1;
+}
+
+.payroll-table thead th.sticky-col {
+  text-align: left;
+  z-index: 3;
+}
+
+.payroll-table tbody td {
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.payroll-table .sticky-col {
+  position: sticky;
+  left: 0;
+  background: #ffffff;
+  text-align: left;
+  min-width: 160px;
+  z-index: 2;
+  box-shadow: 1px 0 0 rgba(0, 0, 0, 0.06);
+}
+
+.payroll-emp-name {
+  font-size: 13px;
+  color: #1a1a18;
+}
+
+.payroll-emp-dept {
+  font-size: 11px;
+  color: #6b6a64;
+  margin-top: 1px;
+}
+
+.payroll-table input[type="number"] {
+  width: 78px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  font-size: 12.5px;
+  text-align: right;
+}
+
+.payroll-table input[type="number"]:disabled {
+  background: #f4f3ef;
+  color: #6b6a64;
+}
+
+.payroll-net-cell {
+  font-weight: 600;
+  color: #1a1a18;
+}
+
+.payroll-actions-cell {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 900px) {
+  .payroll-table-wrap {
+    max-height: 60vh;
+  }
+}
