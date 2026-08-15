@@ -71,7 +71,7 @@ export default function Payroll() {
   async function loadAll() {
     const empRes = await supabase
       .from("users")
-      .select("id, full_name")
+      .select("id, full_name, department_id, position_id, positions(base_salary), departments(name)")
       .eq("status", "active")
       .order("full_name")
 
@@ -113,6 +113,14 @@ export default function Payroll() {
     setForm(function (f) {
       const copy = Object.assign({}, f)
       copy[field] = value
+      if (field === "user_id" && !f.basic_salary) {
+        const emp = employees.find(function (e) {
+          return e.id === value
+        })
+        if (emp && emp.positions && emp.positions.base_salary) {
+          copy.basic_salary = String(emp.positions.base_salary)
+        }
+      }
       return copy
     })
   }
@@ -178,7 +186,10 @@ export default function Payroll() {
 
     const toInsert = []
     employees.forEach(function (emp) {
-      const row = batchRows[emp.id]
+      const defaultRow = Object.assign(emptyRow(), {
+        basic_salary: emp.positions && emp.positions.base_salary ? String(emp.positions.base_salary) : "",
+      })
+      const row = batchRows[emp.id] || defaultRow
       if (row && Number(row.basic_salary) > 0) {
         toInsert.push({
           user_id: emp.id,
@@ -499,12 +510,17 @@ export default function Payroll() {
 
             <div className="row-list" style={{ marginTop: "12px" }}>
               {employees.map(function (emp) {
-                const row = batchRows[emp.id] || emptyRow()
+                const defaultRow = Object.assign(emptyRow(), {
+                  basic_salary: emp.positions && emp.positions.base_salary ? String(emp.positions.base_salary) : "",
+                })
+                const row = batchRows[emp.id] || defaultRow
                 return (
                   <div className="row-item expense-row" key={emp.id} style={{ flexWrap: "wrap" }}>
                     <div style={{ minWidth: "130px" }}>
                       <p className="row-title">{emp.full_name}</p>
-                      <p className="row-sub">Net: {rowNet(row).toLocaleString()} TZS</p>
+                      <p className="row-sub">
+                        {emp.departments ? emp.departments.name + " · " : ""}Net: {rowNet(row).toLocaleString()} TZS
+                      </p>
                     </div>
                     <div className="expense-actions" style={{ flexWrap: "wrap", gap: "6px" }}>
                       <input

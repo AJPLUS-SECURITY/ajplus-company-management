@@ -14,7 +14,8 @@ const NAV_BY_ROLE = {
     { to: '/reviews', label: 'Reviews', icon: 'people' },
     { to: '/blogs', label: 'Blogs', icon: 'file' },
     { to: '/reports', label: 'Ripoti', icon: 'chart' },
-    { to: '/users', label: 'Wafanyakazi', icon: 'people' },
+    { to: '/employees', label: 'HR - Wafanyakazi', icon: 'people' },
+    { to: '/users', label: 'Akaunti/Login', icon: 'people' },
     { to: '/settings', label: 'Mipangilio', icon: 'gear' },
   ],
   fao: [
