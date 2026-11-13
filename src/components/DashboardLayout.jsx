@@ -9,6 +9,7 @@ const NAV_BY_ROLE = {
     { to: '/invoices', label: 'Invoices', icon: 'file' },
     { to: '/payroll', label: 'Payroll', icon: 'users' },
     { to: '/stock', label: 'Stock', icon: 'box' },
+    { to: '/equipment', label: 'Vifaa', icon: 'tool' },
     { to: '/price-lists', label: 'Price Lists', icon: 'trend' },
     { to: '/vouchers', label: 'Vouchers', icon: 'cash' },
     { to: '/reviews', label: 'Reviews', icon: 'people' },
@@ -24,6 +25,7 @@ const NAV_BY_ROLE = {
     { to: '/invoices', label: 'Invoices', icon: 'file' },
     { to: '/payroll', label: 'Payroll', icon: 'users' },
     { to: '/income', label: 'Mapato', icon: 'trend' },
+    { to: '/equipment', label: 'Vifaa', icon: 'tool' },
     { to: '/price-lists', label: 'Price Lists', icon: 'trend' },
     { to: '/vouchers', label: 'Vouchers', icon: 'cash' },
     { to: '/reviews', label: 'Reviews', icon: 'people' },
@@ -39,6 +41,7 @@ const NAV_BY_ROLE = {
     { to: '/', label: 'Muhtasari', icon: 'home' },
     { to: '/expenses', label: 'Maombi ya Fedha', icon: 'cash' },
     { to: '/stock', label: 'Stock', icon: 'box' },
+    { to: '/equipment', label: 'Vifaa', icon: 'tool' },
   ],
   employee: [
     { to: '/', label: 'Maombi Yangu', icon: 'cash' },
@@ -47,6 +50,7 @@ const NAV_BY_ROLE = {
 
 const ROLE_LABELS = {
   md: 'Managing Director',
+  admin: 'Administrator',
   fao: 'Finance & Accounts Officer',
   hr: 'Human Resource',
   supervisor: 'Supervisor',
@@ -58,6 +62,7 @@ const ICONS = {
   cash: 'M3 7h18v10H3zM7 12h0.01M21 9V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v3',
   file: 'M7 3h7l5 5v13H7zM14 3v5h5',
   users: 'M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+  tool: 'M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.1-.4-.4-2.1z',
   box: 'M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8',
   chart: 'M3 3v18h18M9 17V9M14 17V5M19 17v-3',
   trend: 'M23 6l-9.5 9.5-5-5L1 18M17 6h6v6',
@@ -76,7 +81,7 @@ function NavIcon({ name }) {
 export default function DashboardLayout({ children }) {
   const { profile, role, logout } = useAuth()
   const navigate = useNavigate()
-  const navItems = NAV_BY_ROLE[role] ?? []
+  const navItems = NAV_BY_ROLE[role === 'admin' ? 'md' : role] ?? []
   const initials = (profile?.full_name ?? '?')
     .split(' ')
     .map((p) => p[0])

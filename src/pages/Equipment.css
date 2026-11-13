@@ -1,0 +1,57 @@
+.eq-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 1rem;
+}
+
+.eq-filters input,
+.eq-filters select {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  font-size: 13px;
+  background: #ffffff;
+  color: #1a1a18;
+  font-family: inherit;
+}
+
+.eq-filters input {
+  flex: 1;
+  min-width: 180px;
+}
+
+.eq-row {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.eq-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.eq-actions select {
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  font-size: 12px;
+  padding: 0 8px;
+  background: #ffffff;
+}
+
+.eq-danger {
+  color: #a32d2d;
+  border-color: rgba(163, 45, 45, 0.35);
+}
+
+.eq-setup code {
+  background: #f4f3ef;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+}

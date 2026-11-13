@@ -11,6 +11,7 @@ import Invoices from "./pages/Invoices"
 import Payroll from "./pages/Payroll"
 import Employees from "./pages/Employees"
 import Stock from "./pages/Stock"
+import Equipment from "./pages/Equipment"
 import Reports from "./pages/Reports"
 import PriceLists from "./pages/PriceLists"
 import Vouchers from "./pages/Vouchers"
@@ -100,6 +101,16 @@ export default function App() {
               <ProtectedRoute allow={["supervisor", "md", "admin"]}>
                 <DashboardLayout>
                   <Stock />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/equipment"
+            element={
+              <ProtectedRoute allow={["md", "admin", "fao", "supervisor"]}>
+                <DashboardLayout>
+                  <Equipment />
                 </DashboardLayout>
               </ProtectedRoute>
             }
