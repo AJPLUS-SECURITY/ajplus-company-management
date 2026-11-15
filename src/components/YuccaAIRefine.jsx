@@ -39,7 +39,7 @@ export default function YuccaAIRefine({ text, onRefined }) {
       } else {
         onRefined(data.refined_text)
       }
-    } catch (err) {
+    } catch {
       setError("Tatizo la mtandao, jaribu tena")
     }
 
