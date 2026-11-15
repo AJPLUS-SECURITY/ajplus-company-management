@@ -12,6 +12,10 @@ import Payroll from "./pages/Payroll"
 import Employees from "./pages/Employees"
 import Stock from "./pages/Stock"
 import Equipment from "./pages/Equipment"
+import Contracts from "./pages/Contracts"
+import Guards from "./pages/Guards"
+import Attendance from "./pages/Attendance"
+import Payments from "./pages/Payments"
 import Reports from "./pages/Reports"
 import PriceLists from "./pages/PriceLists"
 import Vouchers from "./pages/Vouchers"
@@ -111,6 +115,46 @@ export default function App() {
               <ProtectedRoute allow={["md", "admin", "fao", "supervisor"]}>
                 <DashboardLayout>
                   <Equipment />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/contracts"
+            element={
+              <ProtectedRoute allow={["md", "admin", "fao"]}>
+                <DashboardLayout>
+                  <Contracts />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/guards"
+            element={
+              <ProtectedRoute allow={["md", "admin", "fao", "supervisor", "hr"]}>
+                <DashboardLayout>
+                  <Guards />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/attendance"
+            element={
+              <ProtectedRoute allow={["md", "admin", "supervisor", "hr"]}>
+                <DashboardLayout>
+                  <Attendance />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/payments"
+            element={
+              <ProtectedRoute allow={["md", "admin", "fao"]}>
+                <DashboardLayout>
+                  <Payments />
                 </DashboardLayout>
               </ProtectedRoute>
             }
